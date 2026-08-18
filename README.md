@@ -13,6 +13,7 @@ A premium, local-first typewriter journaling app for MacBook browsers.
 - TXT and Markdown export
 - Focus mode with `Cmd + Enter`
 - Supabase Auth with email/password and magic link options
+- Supabase document/book sync for signed-in users
 - Offline support after the first load via a service worker
 
 ## Shortcuts
@@ -42,3 +43,5 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 ```
 
 The app uses email/password sign-in, sign-up with a display name, and magic links. Google/OAuth login is not enabled.
+
+To enable cloud saving, run `supabase/schema.sql` in your Supabase SQL editor. The app remains local-first with IndexedDB, then syncs documents/books to Supabase for signed-in users.

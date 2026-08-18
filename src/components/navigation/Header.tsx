@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useAuthStore } from "@/store/authStore";
 import { useDocumentStore } from "@/store/documentStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -9,6 +10,9 @@ export function Header() {
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
   const isSidebarOpen = useDocumentStore((state) => state.isSidebarOpen);
   const setSidebarOpen = useDocumentStore((state) => state.setSidebarOpen);
+  const user = useAuthStore((state) => state.user);
+  const setAuthPanelOpen = useAuthStore((state) => state.setAuthPanelOpen);
+  const signOut = useAuthStore((state) => state.signOut);
   const isOptionsOpen = useSettingsStore((state) => state.isOptionsOpen);
   const setOptionsOpen = useSettingsStore((state) => state.setOptionsOpen);
   const focusMode = useSettingsStore((state) => state.focusMode);
@@ -40,13 +44,24 @@ export function Header() {
         {currentDocument?.title || "Untitled"}
       </div>
 
-      <button
-        type="button"
-        className="typewriter-options-button"
-        onClick={() => setOptionsOpen(!isOptionsOpen)}
-      >
-        Options
-      </button>
+      <div className="typewriter-header-actions">
+        {user ? (
+          <button type="button" className="typewriter-login-button" onClick={() => void signOut()}>
+            Logout
+          </button>
+        ) : (
+          <button type="button" className="typewriter-login-button" onClick={() => setAuthPanelOpen(true)}>
+            Login
+          </button>
+        )}
+        <button
+          type="button"
+          className="typewriter-options-button"
+          onClick={() => setOptionsOpen(!isOptionsOpen)}
+        >
+          Options
+        </button>
+      </div>
     </motion.header>
   );
 }

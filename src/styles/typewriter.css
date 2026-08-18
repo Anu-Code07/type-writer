@@ -36,7 +36,7 @@
   border-bottom: 1px solid rgba(255, 247, 232, 0.045);
   color: rgba(238, 229, 214, 0.78);
   display: grid;
-  grid-template-columns: 72px 1fr 96px;
+  grid-template-columns: 72px 1fr auto;
   height: 72px;
   left: 50%;
   max-width: 1180px;
@@ -79,15 +79,39 @@
   width: 14px;
 }
 
-.typewriter-options-button {
+.typewriter-options-button,
+.typewriter-login-button {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
   padding: 0 16px;
   text-transform: uppercase;
 }
 
+.typewriter-header-actions {
+  display: flex;
+  gap: 8px;
+  justify-self: end;
+}
+
+.typewriter-login-button {
+  background: rgba(255, 247, 232, 0.08);
+  border: 1px solid rgba(255, 247, 232, 0.14);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 22px rgba(0, 0, 0, 0.13);
+  color: rgba(248, 239, 224, 0.86);
+  cursor: pointer;
+  height: 42px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
 .typewriter-header-button:hover,
-.typewriter-options-button:hover {
+.typewriter-options-button:hover,
+.typewriter-login-button:hover {
   background: rgba(255, 247, 232, 0.075);
   border-color: rgba(255, 247, 232, 0.16);
   transform: translateY(-1px);
@@ -1121,8 +1145,18 @@
 
 @media (max-width: 760px) {
   .typewriter-header {
-    grid-template-columns: 52px 1fr 86px;
+    grid-template-columns: 52px 1fr auto;
     padding: 0 16px;
+  }
+
+  .typewriter-header-actions {
+    gap: 5px;
+  }
+
+  .typewriter-login-button,
+  .typewriter-options-button {
+    font-size: 0.68rem;
+    padding: 0 10px;
   }
 
   .typewriter-workspace {

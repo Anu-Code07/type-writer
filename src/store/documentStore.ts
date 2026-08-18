@@ -1,5 +1,12 @@
 import { create } from "zustand";
 import {
+  deleteCloudBook,
+  deleteCloudDocument,
+  syncLibraryWithSupabase,
+  upsertCloudBook,
+  upsertCloudDocument,
+} from "@/lib/cloudSync";
+import {
   createBook,
   createEmptyDocument,
   deleteBookById,
@@ -11,6 +18,7 @@ import {
   type WritingBook,
   type WritingDocument,
 } from "@/lib/indexeddb";
+import { useAuthStore } from "@/store/authStore";
 
 interface DocumentState {
   documents: WritingDocument[];
@@ -18,8 +26,11 @@ interface DocumentState {
   currentDocumentId: string | null;
   isLoaded: boolean;
   isSidebarOpen: boolean;
+  isCloudSyncing: boolean;
+  cloudSyncError: string | null;
   lastSavedAt: number | null;
   loadDocuments: () => Promise<void>;
+  syncWithCloud: () => Promise<void>;
   createDocument: () => Promise<WritingDocument>;
   createBookFromDocuments: (title: string, documentIds: string[]) => Promise<WritingBook | null>;
   deleteBook: (bookId: string) => Promise<void>;
@@ -36,12 +47,18 @@ const sortDocuments = (documents: WritingDocument[]) =>
 
 const sortBooks = (books: WritingBook[]) => [...books].sort((first, second) => second.updatedAt - first.updatedAt);
 
+const getCloudUser = () => useAuthStore.getState().user;
+
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Cloud sync failed.");
+
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
   books: [],
   currentDocumentId: null,
   isLoaded: false,
   isSidebarOpen: false,
+  isCloudSyncing: false,
+  cloudSyncError: null,
   lastSavedAt: null,
   loadDocuments: async () => {
     const [documents, books] = await Promise.all([getAllDocuments(), getAllBooks()]);
@@ -67,9 +84,44 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       lastSavedAt: Date.now(),
     });
   },
+  syncWithCloud: async () => {
+    const user = getCloudUser();
+
+    if (!user) {
+      return;
+    }
+
+    set({ isCloudSyncing: true, cloudSyncError: null });
+
+    try {
+      const syncedLibrary = await syncLibraryWithSupabase({
+        user,
+        documents: get().documents,
+        books: get().books,
+      });
+
+      set((state) => ({
+        documents: syncedLibrary.documents,
+        books: syncedLibrary.books,
+        currentDocumentId:
+          state.currentDocumentId && syncedLibrary.documents.some((document) => document.id === state.currentDocumentId)
+            ? state.currentDocumentId
+            : syncedLibrary.documents[0]?.id ?? null,
+        isCloudSyncing: false,
+        cloudSyncError: null,
+        lastSavedAt: Date.now(),
+      }));
+    } catch (error) {
+      set({ isCloudSyncing: false, cloudSyncError: getErrorMessage(error) });
+      console.warn("Supabase sync failed", error);
+    }
+  },
   createDocument: async () => {
     const document = createEmptyDocument("Untitled");
     await saveDocument(document);
+    void upsertCloudDocument(document, getCloudUser()).catch((error) =>
+      set({ cloudSyncError: getErrorMessage(error) }),
+    );
 
     set((state) => ({
       documents: sortDocuments([document, ...state.documents]),
@@ -93,6 +145,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     const book = createBook(title, uniqueDocumentIds);
     await saveBook(book);
+    void upsertCloudBook(book, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
 
     set((state) => ({
       books: sortBooks([book, ...state.books]),
@@ -105,6 +158,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
   deleteBook: async (bookId) => {
     await deleteBookById(bookId);
+    void deleteCloudBook(bookId, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
     set((state) => ({
       books: state.books.filter((book) => book.id !== bookId),
       lastSavedAt: Date.now(),
@@ -131,6 +185,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }));
 
     await saveDocument(updatedDocument);
+    void upsertCloudDocument(updatedDocument, getCloudUser()).catch((error) =>
+      set({ cloudSyncError: getErrorMessage(error) }),
+    );
     set({ lastSavedAt: Date.now() });
   },
   deleteDocument: async (documentId) => {
@@ -141,6 +198,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       await saveDocument(replacementDocument);
       await deleteDocumentById(documentId);
       await Promise.all(get().books.map((book) => deleteBookById(book.id)));
+      void deleteCloudDocument(documentId, getCloudUser()).catch((error) =>
+        set({ cloudSyncError: getErrorMessage(error) }),
+      );
+      get().books.forEach((book) => {
+        void deleteCloudBook(book.id, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+      });
+      void upsertCloudDocument(replacementDocument, getCloudUser()).catch((error) =>
+        set({ cloudSyncError: getErrorMessage(error) }),
+      );
 
       set({
         documents: [replacementDocument],
@@ -164,6 +230,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       ...updatedBooks.map((book) => saveBook(book)),
       ...removedBooks.map((book) => deleteBookById(book.id)),
     ]);
+    void deleteCloudDocument(documentId, getCloudUser()).catch((error) =>
+      set({ cloudSyncError: getErrorMessage(error) }),
+    );
+    updatedBooks.forEach((book) => {
+      void upsertCloudBook(book, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+    });
+    removedBooks.forEach((book) => {
+      void deleteCloudBook(book.id, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+    });
 
     set({
       documents: remainingDocuments,
@@ -200,6 +275,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
 
     await saveDocument(currentDocument);
+    void upsertCloudDocument(currentDocument, getCloudUser()).catch((error) =>
+      set({ cloudSyncError: getErrorMessage(error) }),
+    );
     set({ lastSavedAt: Date.now() });
   },
   setSidebarOpen: (isSidebarOpen) => set({ isSidebarOpen }),

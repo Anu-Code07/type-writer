@@ -111,12 +111,22 @@ export const saveDocument = async (document: WritingDocument) => {
   });
 };
 
+export const storeDocumentSnapshot = async (document: WritingDocument) => {
+  const database = await getDatabase();
+  await database.put("documents", document);
+};
+
 export const saveBook = async (book: WritingBook) => {
   const database = await getDatabase();
   await database.put("books", {
     ...book,
     updatedAt: Date.now(),
   });
+};
+
+export const storeBookSnapshot = async (book: WritingBook) => {
+  const database = await getDatabase();
+  await database.put("books", book);
 };
 
 export const deleteDocumentById = async (documentId: string) => {
