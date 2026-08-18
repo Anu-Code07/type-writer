@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthPanel } from "@/components/auth/AuthPanel";
 import { DocumentSidebar } from "@/components/navigation/DocumentSidebar";
 import { Header } from "@/components/navigation/Header";
 import { OptionsPanel } from "@/components/settings/OptionsPanel";
@@ -19,6 +20,7 @@ export function AppShell() {
   return (
     <div className="app-shell">
       <Header />
+      <AuthPanel />
       <DocumentSidebar />
       <OptionsPanel />
       <Typewriter />

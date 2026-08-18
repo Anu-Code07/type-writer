@@ -2,6 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { exportDocument } from "@/lib/export";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { useAuthStore } from "@/store/authStore";
 import { useDocumentStore } from "@/store/documentStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -30,6 +32,9 @@ export function OptionsPanel() {
   const updateSettings = useSettingsStore((state) => state.update);
   const documents = useDocumentStore((state) => state.documents);
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
+  const user = useAuthStore((state) => state.user);
+  const setAuthPanelOpen = useAuthStore((state) => state.setAuthPanelOpen);
+  const signOut = useAuthStore((state) => state.signOut);
   const currentDocument = documents.find((document) => document.id === currentDocumentId);
 
   return (
@@ -147,6 +152,31 @@ export function OptionsPanel() {
                 <button type="button" disabled title="PDF export can be added cleanly later.">
                   PDF Soon
                 </button>
+              </div>
+            </section>
+
+            <section>
+              <p className="panel-kicker">Account</p>
+              <div className="account-card">
+                <span>
+                  <strong>{user?.user_metadata?.display_name || user?.email || "Local writing mode"}</strong>
+                  <small>
+                    {user
+                      ? "Signed in with Supabase Auth"
+                      : isSupabaseConfigured
+                        ? "Sign in with email/password or magic link"
+                        : "Supabase environment keys are not configured"}
+                  </small>
+                </span>
+                {user ? (
+                  <button type="button" onClick={() => void signOut()}>
+                    Sign out
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setAuthPanelOpen(true)}>
+                    Sign in
+                  </button>
+                )}
               </div>
             </section>
           </motion.aside>

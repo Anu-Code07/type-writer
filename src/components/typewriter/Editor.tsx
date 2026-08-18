@@ -25,6 +25,7 @@ const getTextHeight = (content: string, fontSize: number) => {
 export function Editor() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
+  const activeDocumentIdRef = useRef<string | null>(null);
   const [isReturning, setIsReturning] = useState(false);
   const documents = useDocumentStore((state) => state.documents);
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
@@ -53,10 +54,11 @@ export function Editor() {
   const editorHeight = getTextHeight(content, fontSize);
 
   useEffect(() => {
-    if (currentDocument) {
+    if (currentDocument && activeDocumentIdRef.current !== currentDocument.id) {
+      activeDocumentIdRef.current = currentDocument.id;
       replaceDocument(currentDocument.content);
     }
-  }, [currentDocument?.id, replaceDocument]);
+  }, [currentDocument, replaceDocument]);
 
   useEffect(() => {
     const textarea = textareaRef.current;

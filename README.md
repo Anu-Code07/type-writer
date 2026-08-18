@@ -12,6 +12,7 @@ A premium, local-first typewriter journaling app for MacBook browsers.
 - Debounced autosave
 - TXT and Markdown export
 - Focus mode with `Cmd + Enter`
+- Supabase Auth with email/password and magic link options
 - Offline support after the first load via a service worker
 
 ## Shortcuts
@@ -30,3 +31,14 @@ A premium, local-first typewriter journaling app for MacBook browsers.
 npm install
 npm run dev
 ```
+
+## Supabase Auth
+
+Create `.env.local` from `.env.example` and provide:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+```
+
+The app uses email/password sign-in, sign-up with a display name, and magic links. Google/OAuth login is not enabled.
