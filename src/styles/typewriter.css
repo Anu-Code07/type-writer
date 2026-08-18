@@ -31,6 +31,9 @@
 
 .typewriter-header {
   align-items: center;
+  backdrop-filter: blur(18px);
+  background: linear-gradient(90deg, transparent, rgba(255, 247, 232, 0.028), transparent);
+  border-bottom: 1px solid rgba(255, 247, 232, 0.045);
   color: rgba(238, 229, 214, 0.78);
   display: grid;
   grid-template-columns: 72px 1fr 96px;
@@ -199,8 +202,11 @@
 
 .typewriter-paper {
   animation: paper-wake 860ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  border-top: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 22px;
   box-shadow:
+    0 2px 0 rgba(255, 250, 238, 0.75),
+    0 5px 0 rgba(196, 177, 148, 0.35),
     0 42px 90px rgba(0, 0, 0, 0.42),
     0 6px 18px rgba(0, 0, 0, 0.22),
     inset 0 0 0 1px rgba(72, 52, 39, 0.09);
@@ -264,6 +270,31 @@
   z-index: 2;
 }
 
+.typewriter-editor-shell::before {
+  color: rgba(83, 59, 42, 0.23);
+  content: "MANUSCRIPT";
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.68rem;
+  left: 0;
+  letter-spacing: 0.22em;
+  position: absolute;
+  top: -38px;
+}
+
+.typewriter-editor-shell::after {
+  background:
+    linear-gradient(180deg, #9c4538, #6f2d27 62%, #391916),
+    repeating-linear-gradient(90deg, transparent 0 5px, rgba(255, 255, 255, 0.08) 5px 6px);
+  box-shadow: 0 12px 18px rgba(79, 30, 23, 0.18);
+  content: "";
+  height: 86px;
+  position: absolute;
+  right: clamp(10px, 8vw, 62px);
+  top: -104px;
+  width: 18px;
+  z-index: 3;
+}
+
 .typewriter-editor {
   letter-spacing: 0.012em;
   margin: 0 auto;
@@ -321,6 +352,10 @@
 
 .paper-dark .typewriter-placeholder {
   color: rgba(238, 224, 201, 0.28);
+}
+
+.paper-dark .typewriter-editor-shell::before {
+  color: rgba(238, 224, 201, 0.18);
 }
 
 .font-courier-prime {
@@ -1030,12 +1065,17 @@
 }
 
 .status-indicator {
-  bottom: 20px;
-  color: rgba(242, 232, 214, 0.42);
+  backdrop-filter: blur(16px);
+  background: rgba(255, 247, 232, 0.045);
+  border: 1px solid rgba(255, 247, 232, 0.07);
+  border-radius: 999px;
+  bottom: 18px;
+  color: rgba(242, 232, 214, 0.56);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
+  padding: 9px 13px;
   position: fixed;
-  right: 28px;
+  right: 22px;
   text-transform: uppercase;
   z-index: 30;
 }
