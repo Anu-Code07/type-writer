@@ -1,20 +1,28 @@
 import { create } from "zustand";
 import {
+  createBook,
   createEmptyDocument,
+  deleteBookById,
   deleteDocumentById,
+  getAllBooks,
   getAllDocuments,
+  saveBook,
   saveDocument,
+  type WritingBook,
   type WritingDocument,
 } from "@/lib/indexeddb";
 
 interface DocumentState {
   documents: WritingDocument[];
+  books: WritingBook[];
   currentDocumentId: string | null;
   isLoaded: boolean;
   isSidebarOpen: boolean;
   lastSavedAt: number | null;
   loadDocuments: () => Promise<void>;
   createDocument: () => Promise<WritingDocument>;
+  createBookFromDocuments: (title: string, documentIds: string[]) => Promise<WritingBook | null>;
+  deleteBook: (bookId: string) => Promise<void>;
   renameDocument: (documentId: string, title: string) => Promise<void>;
   deleteDocument: (documentId: string) => Promise<void>;
   switchDocument: (documentId: string) => void;
@@ -26,18 +34,22 @@ interface DocumentState {
 const sortDocuments = (documents: WritingDocument[]) =>
   [...documents].sort((first, second) => second.updatedAt - first.updatedAt);
 
+const sortBooks = (books: WritingBook[]) => [...books].sort((first, second) => second.updatedAt - first.updatedAt);
+
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
+  books: [],
   currentDocumentId: null,
   isLoaded: false,
   isSidebarOpen: false,
   lastSavedAt: null,
   loadDocuments: async () => {
-    const documents = await getAllDocuments();
+    const [documents, books] = await Promise.all([getAllDocuments(), getAllBooks()]);
 
     if (documents.length > 0) {
       set({
         documents,
+        books,
         currentDocumentId: documents[0].id,
         isLoaded: true,
       });
@@ -49,6 +61,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     set({
       documents: [firstDocument],
+      books,
       currentDocumentId: firstDocument.id,
       isLoaded: true,
       lastSavedAt: Date.now(),
@@ -66,6 +79,36 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }));
 
     return document;
+  },
+  createBookFromDocuments: async (title, documentIds) => {
+    const uniqueDocumentIds = documentIds.filter(
+      (documentId, index) =>
+        documentIds.indexOf(documentId) === index &&
+        get().documents.some((document) => document.id === documentId),
+    );
+
+    if (uniqueDocumentIds.length < 2) {
+      return null;
+    }
+
+    const book = createBook(title, uniqueDocumentIds);
+    await saveBook(book);
+
+    set((state) => ({
+      books: sortBooks([book, ...state.books]),
+      currentDocumentId: book.documentIds[0],
+      isSidebarOpen: false,
+      lastSavedAt: Date.now(),
+    }));
+
+    return book;
+  },
+  deleteBook: async (bookId) => {
+    await deleteBookById(bookId);
+    set((state) => ({
+      books: state.books.filter((book) => book.id !== bookId),
+      lastSavedAt: Date.now(),
+    }));
   },
   renameDocument: async (documentId, title) => {
     const sanitizedTitle = title.trim() || "Untitled";
@@ -97,23 +140,37 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const replacementDocument = createEmptyDocument("Untitled");
       await saveDocument(replacementDocument);
       await deleteDocumentById(documentId);
+      await Promise.all(get().books.map((book) => deleteBookById(book.id)));
 
       set({
         documents: [replacementDocument],
+        books: [],
         currentDocumentId: replacementDocument.id,
         isSidebarOpen: false,
       });
       return;
     }
 
-    await deleteDocumentById(documentId);
+    const updatedBooks = get()
+      .books.map((book) => ({
+        ...book,
+        documentIds: book.documentIds.filter((bookDocumentId) => bookDocumentId !== documentId),
+      }))
+      .filter((book) => book.documentIds.length > 1);
+    const removedBooks = get().books.filter((book) => !updatedBooks.some((updatedBook) => updatedBook.id === book.id));
 
-    set((state) => ({
+    await deleteDocumentById(documentId);
+    await Promise.all([
+      ...updatedBooks.map((book) => saveBook(book)),
+      ...removedBooks.map((book) => deleteBookById(book.id)),
+    ]);
+
+    set({
       documents: remainingDocuments,
-      currentDocumentId:
-        state.currentDocumentId === documentId ? remainingDocuments[0].id : state.currentDocumentId,
+      books: updatedBooks,
+      currentDocumentId: get().currentDocumentId === documentId ? remainingDocuments[0].id : get().currentDocumentId,
       isSidebarOpen: false,
-    }));
+    });
   },
   switchDocument: (documentId) => {
     if (get().documents.some((document) => document.id === documentId)) {
