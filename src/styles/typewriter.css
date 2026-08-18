@@ -1,0 +1,679 @@
+.app-shell {
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, black, transparent 76%);
+  z-index: -1;
+}
+
+.typewriter-header {
+  align-items: center;
+  color: rgba(238, 229, 214, 0.78);
+  display: grid;
+  grid-template-columns: 72px 1fr 96px;
+  height: 72px;
+  left: 50%;
+  max-width: 1180px;
+  padding: 0 28px;
+  position: fixed;
+  top: 8px;
+  transform: translateX(-50%);
+  width: min(100%, 1180px);
+  z-index: 40;
+}
+
+.typewriter-header-button,
+.typewriter-options-button {
+  background: rgba(255, 247, 232, 0.035);
+  border: 1px solid rgba(255, 247, 232, 0.08);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: rgba(248, 239, 224, 0.78);
+  cursor: pointer;
+  height: 42px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.typewriter-header-button {
+  display: inline-grid;
+  gap: 4px;
+  justify-content: center;
+  padding: 12px 14px;
+  width: 42px;
+}
+
+.typewriter-header-button span {
+  background: currentColor;
+  border-radius: 99px;
+  display: block;
+  height: 1px;
+  width: 14px;
+}
+
+.typewriter-options-button {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  padding: 0 16px;
+  text-transform: uppercase;
+}
+
+.typewriter-header-button:hover,
+.typewriter-options-button:hover {
+  background: rgba(255, 247, 232, 0.075);
+  border-color: rgba(255, 247, 232, 0.16);
+  transform: translateY(-1px);
+}
+
+.typewriter-title {
+  color: rgba(248, 239, 224, 0.72);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.98rem;
+  font-style: italic;
+  justify-self: center;
+  letter-spacing: 0.03em;
+  max-width: min(44vw, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.typewriter-workspace {
+  display: grid;
+  min-height: 100vh;
+  padding: 92px 24px 56px;
+  place-items: center;
+  transition: padding 240ms ease;
+}
+
+.typewriter-workspace-focus {
+  padding-top: 34px;
+}
+
+.typewriter-stage {
+  max-width: 1140px;
+  perspective: 1800px;
+  position: relative;
+  width: min(94vw, 1140px);
+}
+
+.typewriter-stage::before {
+  animation: journal-cover-open 1120ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 16%),
+    linear-gradient(145deg, #3f2a26, #211917 52%, #130f0d);
+  border: 1px solid rgba(255, 234, 202, 0.1);
+  border-radius: 30px 24px 24px 30px;
+  box-shadow:
+    0 38px 80px rgba(0, 0, 0, 0.42),
+    inset 18px 0 26px rgba(0, 0, 0, 0.3),
+    inset -1px 0 rgba(255, 255, 255, 0.07);
+  content: "";
+  inset: -18px -14px -18px -14px;
+  pointer-events: none;
+  position: absolute;
+  transform-origin: left center;
+  z-index: 8;
+}
+
+.typewriter-stage::after {
+  animation: journal-band-fade 900ms ease 500ms forwards;
+  background: rgba(12, 10, 9, 0.74);
+  border-radius: 999px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+  content: "";
+  height: 28px;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 49%;
+  transform: translate(-50%, -50%);
+  width: 34%;
+  z-index: 9;
+}
+
+.typewriter-paper {
+  animation: paper-wake 860ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  border-radius: 22px;
+  box-shadow:
+    0 42px 90px rgba(0, 0, 0, 0.42),
+    0 6px 18px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(72, 52, 39, 0.09);
+  height: min(78vh, 840px);
+  overflow: auto;
+  padding: clamp(58px, 8vw, 104px) clamp(38px, 10vw, 124px);
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+.typewriter-paper::before {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(88, 65, 47, 0.055), transparent 20rem),
+    radial-gradient(circle at 70% 70%, rgba(125, 94, 63, 0.045), transparent 18rem),
+    repeating-linear-gradient(0deg, rgba(64, 47, 36, 0.018) 0, rgba(64, 47, 36, 0.018) 1px, transparent 1px, transparent 5px);
+  content: "";
+  inset: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.62;
+  pointer-events: none;
+  position: absolute;
+}
+
+.typewriter-paper::after {
+  background: linear-gradient(90deg, rgba(67, 45, 30, 0.16), transparent 2.2rem, transparent calc(100% - 2rem), rgba(67, 45, 30, 0.08));
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.paper-ivory {
+  background: #f4eddf;
+  color: #29231f;
+}
+
+.paper-white {
+  background: #fbfaf4;
+  color: #1f1e1b;
+}
+
+.paper-dark {
+  background: #24211d;
+  color: #ece0cb;
+}
+
+.paper-dark::before {
+  opacity: 0.24;
+}
+
+.paper-dark::after {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.24), transparent 2.2rem, transparent calc(100% - 2rem), rgba(0, 0, 0, 0.18));
+}
+
+.typewriter-editor-shell {
+  cursor: text;
+  min-height: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.typewriter-editor {
+  letter-spacing: 0.012em;
+  margin: 0 auto;
+  max-width: 760px;
+  min-height: 520px;
+  position: relative;
+  width: min(100%, 760px);
+}
+
+.typewriter-text-layer,
+.typewriter-input-layer {
+  border: 0;
+  inset: 0;
+  margin: 0;
+  outline: none;
+  padding: 0;
+  tab-size: 2;
+  white-space: pre-wrap;
+  width: 100%;
+  word-break: break-word;
+}
+
+.typewriter-text-layer {
+  color: inherit;
+  pointer-events: none;
+  position: absolute;
+  text-shadow: 0.5px 0 rgba(30, 25, 21, 0.09);
+  z-index: 2;
+}
+
+.paper-dark .typewriter-text-layer {
+  text-shadow: 0 0 14px rgba(255, 236, 204, 0.08);
+}
+
+.typewriter-input-layer {
+  appearance: none;
+  background: transparent;
+  caret-color: transparent;
+  color: transparent;
+  overflow: hidden;
+  position: absolute;
+  resize: none;
+  z-index: 20;
+}
+
+.typewriter-input-layer::selection {
+  background: rgba(112, 85, 65, 0.22);
+  color: transparent;
+}
+
+.typewriter-placeholder {
+  color: rgba(79, 61, 45, 0.38);
+  font-style: italic;
+}
+
+.paper-dark .typewriter-placeholder {
+  color: rgba(238, 224, 201, 0.28);
+}
+
+.font-courier-prime {
+  font-family: "Courier Prime", "Courier New", Courier, monospace;
+}
+
+.font-special-elite {
+  font-family: "Special Elite", "Courier New", Courier, monospace;
+}
+
+.font-american-typewriter {
+  font-family: "American Typewriter", "Courier New", Courier, monospace;
+}
+
+.font-ibm-plex-mono {
+  font-family: "IBM Plex Mono", "Courier New", Courier, monospace;
+}
+
+.typewriter-cursor {
+  background: linear-gradient(#45332a, #181411);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 9px 14px rgba(0, 0, 0, 0.18);
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 2px;
+  z-index: 12;
+}
+
+.paper-dark .typewriter-cursor {
+  background: linear-gradient(#f0dcc0, #c0a17b);
+}
+
+.typewriter-platen {
+  height: 18px;
+  left: -92px;
+  position: absolute;
+  right: -92px;
+  top: 0;
+}
+
+.typewriter-platen-roller {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 35%, rgba(0, 0, 0, 0.18)),
+    linear-gradient(90deg, #686762, #c6c8c7 12%, #686762 23%, #c2c4c4 51%, #585956 82%, #b8bbbb);
+  border-radius: 999px;
+  box-shadow:
+    0 7px 15px rgba(0, 0, 0, 0.24),
+    inset 0 1px 2px rgba(255, 255, 255, 0.56),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.22);
+  height: 8px;
+  margin-top: 5px;
+  width: 100%;
+}
+
+.typewriter-carriage {
+  filter: drop-shadow(0 15px 16px rgba(0, 0, 0, 0.25));
+  height: 58px;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 116px;
+}
+
+.typewriter-carriage-top {
+  background: linear-gradient(180deg, #38332f, #171513);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 9px 18px rgba(0, 0, 0, 0.28);
+  height: 10px;
+  margin: 0 auto;
+  width: 112px;
+}
+
+.typewriter-carriage-body {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    linear-gradient(90deg, #111, #1d1a18 22%, #070605 52%, #1d1a18 78%, #0d0c0b);
+  border-radius: 0 0 18px 18px;
+  height: 22px;
+  margin: -1px auto 0;
+  position: relative;
+  width: 62px;
+}
+
+.typewriter-carriage-body span {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  height: 2px;
+  left: 17px;
+  position: absolute;
+  top: 5px;
+  width: 28px;
+}
+
+.panel-scrim {
+  background: rgba(13, 11, 10, 0.32);
+  border: 0;
+  cursor: default;
+  inset: 0;
+  position: fixed;
+  z-index: 45;
+}
+
+.document-sidebar,
+.options-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 242, 0.97), rgba(236, 224, 207, 0.96)),
+    #f1e5d2;
+  border: 1px solid rgba(80, 58, 44, 0.14);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.36);
+  color: #2b2520;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  height: calc(100vh - 28px);
+  max-width: calc(100vw - 28px);
+  padding: 30px;
+  position: fixed;
+  top: 14px;
+  width: 354px;
+  z-index: 50;
+}
+
+.document-sidebar {
+  border-radius: 0 28px 28px 0;
+  left: 0;
+}
+
+.options-panel {
+  border-radius: 28px 0 0 28px;
+  overflow: auto;
+  right: 0;
+}
+
+.panel-kicker {
+  color: rgba(53, 41, 33, 0.52);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+
+.document-list {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+}
+
+.document-row {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+  width: 100%;
+}
+
+.document-row:hover,
+.document-row-active {
+  background: rgba(96, 64, 44, 0.08);
+  border-color: rgba(96, 64, 44, 0.09);
+}
+
+.document-select {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.document-row strong,
+.document-row small {
+  display: block;
+}
+
+.document-row strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.document-row small {
+  color: rgba(43, 37, 32, 0.48);
+  margin-top: 4px;
+}
+
+.document-row-actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.document-row:hover .document-row-actions {
+  opacity: 1;
+}
+
+.document-row-actions button,
+.new-document-button,
+.export-row button {
+  background: rgba(50, 37, 29, 0.06);
+  border: 1px solid rgba(50, 37, 29, 0.08);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.74rem;
+  padding: 8px 11px;
+}
+
+.document-sidebar-footer {
+  border-top: 1px solid rgba(50, 37, 29, 0.1);
+  margin-top: auto;
+  padding-top: 22px;
+}
+
+.new-document-button {
+  font-size: 0.9rem;
+  padding: 12px 16px;
+  width: 100%;
+}
+
+.segmented-control {
+  background: rgba(55, 40, 31, 0.07);
+  border-radius: 18px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 4px;
+}
+
+.segmented-control button,
+.font-options button {
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  padding: 10px 9px;
+}
+
+.segmented-control button.active,
+.font-options button.active {
+  background: rgba(255, 251, 242, 0.86);
+  box-shadow: 0 6px 15px rgba(54, 37, 24, 0.08);
+}
+
+.font-options {
+  display: grid;
+  gap: 8px;
+}
+
+.font-options button {
+  border: 1px solid rgba(50, 37, 29, 0.08);
+  text-align: left;
+}
+
+.slider-row {
+  align-items: center;
+  color: rgba(43, 37, 32, 0.52);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr auto;
+}
+
+.slider-row input {
+  accent-color: #5b3d30;
+}
+
+.toggle-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.toggle-row {
+  align-items: center;
+  background: rgba(50, 37, 29, 0.045);
+  border: 1px solid rgba(50, 37, 29, 0.08);
+  border-radius: 18px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  padding: 14px;
+  text-align: left;
+}
+
+.toggle-row strong,
+.toggle-row small {
+  display: block;
+}
+
+.toggle-row small {
+  color: rgba(43, 37, 32, 0.5);
+  font-size: 0.72rem;
+  margin-top: 4px;
+}
+
+.toggle-row em {
+  background: #33251e;
+  border-radius: 999px;
+  color: #f4eddf;
+  font-size: 0.68rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  padding: 6px 9px;
+}
+
+.export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.export-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.status-indicator {
+  bottom: 20px;
+  color: rgba(242, 232, 214, 0.42);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  position: fixed;
+  right: 28px;
+  text-transform: uppercase;
+  z-index: 30;
+}
+
+.typewriter-workspace-focus + .status-indicator,
+.typewriter-workspace-focus ~ .status-indicator {
+  display: none;
+}
+
+@keyframes journal-cover-open {
+  0% {
+    opacity: 1;
+    transform: rotateY(0deg) translateZ(28px);
+  }
+  58% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotateY(-112deg) translateZ(28px);
+  }
+}
+
+@keyframes journal-band-fade {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleX(0.78);
+  }
+}
+
+@keyframes paper-wake {
+  from {
+    filter: blur(2px);
+    opacity: 0;
+    transform: rotateX(7deg) translateY(28px) scale(0.985);
+  }
+  to {
+    filter: blur(0);
+    opacity: 1;
+    transform: rotateX(0deg) translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 760px) {
+  .typewriter-header {
+    grid-template-columns: 52px 1fr 86px;
+    padding: 0 16px;
+  }
+
+  .typewriter-workspace {
+    padding: 82px 12px 44px;
+  }
+
+  .typewriter-paper {
+    border-radius: 18px;
+    height: min(80vh, 760px);
+    padding: 44px 28px;
+  }
+
+  .typewriter-stage::before,
+  .typewriter-stage::after,
+  .typewriter-platen,
+  .typewriter-carriage {
+    display: none;
+  }
+
+  .document-sidebar,
+  .options-panel {
+    border-radius: 24px;
+    height: calc(100vh - 20px);
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    width: auto;
+  }
+
+  .status-indicator {
+    display: none;
+  }
+}
