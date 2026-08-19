@@ -1,4 +1,5 @@
 import type { WritingBook, WritingDocument } from "@/lib/indexeddb";
+import { htmlToPlainText, paginateHtml } from "@/lib/richText";
 
 const CHARACTERS_PER_PAGE = 760;
 
@@ -62,7 +63,10 @@ export const getCoverPalette = (seed: string): CoverPalette => {
   return COVER_PALETTES[Math.abs(hash) % COVER_PALETTES.length];
 };
 
-export const countWords = (content: string) => (content.trim() ? content.trim().split(/\s+/).length : 0);
+export const countWords = (content: string) => {
+  const plainText = htmlToPlainText(content);
+  return plainText ? plainText.split(/\s+/).length : 0;
+};
 
 export const formatJournalDate = (timestamp: number) =>
   new Intl.DateTimeFormat(undefined, {
@@ -124,7 +128,7 @@ export const buildJournalSheets = (book: WritingBook, documents: WritingDocument
   const contentsChapters: Array<{ title: string; sheetIndex: number; documentId: string }> = [];
 
   chapters.forEach((chapter, index) => {
-    const bodies = paginateText(chapter.content);
+    const bodies = paginateHtml(chapter.content);
     contentsChapters.push({
       title: chapter.title.trim() || "Untitled",
       sheetIndex: sheets.length,

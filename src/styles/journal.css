@@ -437,15 +437,19 @@
   font-weight: 600;
 }
 
-.journal-sheet-body {
+.journal-sheet-body,
+.manuscript-html {
   flex: 1;
   font-family: var(--font-courier-prime), "Courier New", Courier, monospace;
   font-size: 0.98rem;
   line-height: 32px;
   margin: 22px 0 0;
   position: relative;
-  white-space: pre-wrap;
   z-index: 1;
+}
+
+.manuscript-html {
+  white-space: normal;
 }
 
 .journal-write-button {
@@ -481,8 +485,8 @@
 
 .journal-writing-surface .typewriter-editor-shell,
 .journal-writing-surface .typewriter-editor,
-.journal-writing-surface .typewriter-text-layer,
-.journal-writing-surface .typewriter-input-layer {
+.journal-writing-surface .manuscript-host,
+.journal-writing-surface .ql-editor {
   min-height: 100%;
 }
 

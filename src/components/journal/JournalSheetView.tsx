@@ -1,6 +1,7 @@
 "use client";
 
 import { Editor } from "@/components/typewriter/Editor";
+import { ManuscriptHtml } from "@/components/journal/ManuscriptHtml";
 import type { CoverPalette, JournalSheet } from "@/lib/journal";
 import { formatJournalDate } from "@/lib/journal";
 
@@ -90,7 +91,7 @@ export function JournalSheetView({
         </div>
       ) : (
         <>
-          <p className="journal-sheet-body">{sheet.body || "A blank leaf, ready for ink."}</p>
+          <ManuscriptHtml html={sheet.body} />
           {onWrite ? (
             <button type="button" className="journal-write-button" onClick={() => onWrite(sheet.documentId)}>
               Write on this page
