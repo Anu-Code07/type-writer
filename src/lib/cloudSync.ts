@@ -1,11 +1,15 @@
 import type { User } from "@supabase/supabase-js";
 import {
+  clearPendingDelete,
+  getPendingDeletes,
   storeBookSnapshot,
   storeDocumentSnapshot,
   type WritingBook,
   type WritingDocument,
 } from "@/lib/indexeddb";
+import { isAppOnline } from "@/lib/offline";
 import { supabase } from "@/lib/supabase";
+import { getDisplayNameFromUser } from "@/lib/writerName";
 
 interface DocumentRow {
   id: string;
@@ -30,6 +34,8 @@ interface SyncLibraryInput {
   documents: WritingDocument[];
   books: WritingBook[];
 }
+
+const canUseCloud = (user?: User | null) => Boolean(supabase && user && isAppOnline());
 
 const toDocumentRow = (document: WritingDocument, userId: string): DocumentRow => ({
   id: document.id,
@@ -82,16 +88,57 @@ const mergeByNewest = <Entity extends { id: string; updatedAt: number }>(
   return [...entitiesById.values()].sort((first, second) => second.updatedAt - first.updatedAt);
 };
 
-export const syncLibraryWithSupabase = async ({ user, documents, books }: SyncLibraryInput) => {
+const flushPendingDeletes = async (user: User) => {
   if (!supabase) {
+    return { documentIds: new Set<string>(), bookIds: new Set<string>() };
+  }
+
+  const pendingDeletes = await getPendingDeletes();
+  const documentIds = new Set<string>();
+  const bookIds = new Set<string>();
+
+  for (const pendingDelete of pendingDeletes) {
+    if (pendingDelete.kind === "document") {
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", pendingDelete.id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      documentIds.add(pendingDelete.id);
+    } else {
+      const { error } = await supabase.from("books").delete().eq("id", pendingDelete.id).eq("user_id", user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      bookIds.add(pendingDelete.id);
+    }
+
+    await clearPendingDelete(pendingDelete.id);
+  }
+
+  return { documentIds, bookIds };
+};
+
+export const syncLibraryWithSupabase = async ({ user, documents, books }: SyncLibraryInput) => {
+  if (!canUseCloud(user) || !supabase) {
     return { documents, books };
   }
 
-  const [{ data: documentRows, error: documentsError }, { data: bookRows, error: booksError }] =
-    await Promise.all([
+  const deleted = await flushPendingDeletes(user);
+
+  const [{ data: documentRows, error: documentsError }, { data: bookRows, error: booksError }] = await Promise.all(
+    [
       supabase.from("documents").select("*").eq("user_id", user.id),
       supabase.from("books").select("*").eq("user_id", user.id),
-    ]);
+    ],
+  );
 
   if (documentsError) {
     throw documentsError;
@@ -101,11 +148,15 @@ export const syncLibraryWithSupabase = async ({ user, documents, books }: SyncLi
     throw booksError;
   }
 
-  const mergedDocuments = mergeByNewest(
-    documents,
-    ((documentRows ?? []) as DocumentRow[]).map(fromDocumentRow),
-  );
-  const mergedBooks = mergeByNewest(books, ((bookRows ?? []) as BookRow[]).map(fromBookRow)).filter((book) =>
+  const remoteDocuments = ((documentRows ?? []) as DocumentRow[])
+    .map(fromDocumentRow)
+    .filter((document) => !deleted.documentIds.has(document.id));
+  const remoteBooks = ((bookRows ?? []) as BookRow[])
+    .map(fromBookRow)
+    .filter((book) => !deleted.bookIds.has(book.id));
+
+  const mergedDocuments = mergeByNewest(documents, remoteDocuments);
+  const mergedBooks = mergeByNewest(books, remoteBooks).filter((book) =>
     book.documentIds.every((documentId) => mergedDocuments.some((document) => document.id === documentId)),
   );
 
@@ -127,7 +178,7 @@ export const syncLibraryWithSupabase = async ({ user, documents, books }: SyncLi
 };
 
 export const upsertCloudDocument = async (document: WritingDocument, user: User | null) => {
-  if (!supabase || !user) {
+  if (!canUseCloud(user) || !supabase || !user) {
     return;
   }
 
@@ -139,7 +190,7 @@ export const upsertCloudDocument = async (document: WritingDocument, user: User 
 };
 
 export const upsertCloudBook = async (book: WritingBook, user: User | null) => {
-  if (!supabase || !user) {
+  if (!canUseCloud(user) || !supabase || !user) {
     return;
   }
 
@@ -151,7 +202,7 @@ export const upsertCloudBook = async (book: WritingBook, user: User | null) => {
 };
 
 export const deleteCloudDocument = async (documentId: string, user: User | null) => {
-  if (!supabase || !user) {
+  if (!canUseCloud(user) || !supabase || !user) {
     return;
   }
 
@@ -163,7 +214,7 @@ export const deleteCloudDocument = async (documentId: string, user: User | null)
 };
 
 export const deleteCloudBook = async (bookId: string, user: User | null) => {
-  if (!supabase || !user) {
+  if (!canUseCloud(user) || !supabase || !user) {
     return;
   }
 
@@ -175,15 +226,11 @@ export const deleteCloudBook = async (bookId: string, user: User | null) => {
 };
 
 export const upsertCloudProfile = async (user: User | null) => {
-  if (!supabase || !user) {
+  if (!canUseCloud(user) || !supabase || !user) {
     return;
   }
 
-  const displayName =
-    (typeof user.user_metadata?.display_name === "string" && user.user_metadata.display_name) ||
-    (typeof user.user_metadata?.username === "string" && user.user_metadata.username) ||
-    user.email?.split("@")[0] ||
-    "Writer";
+  const displayName = getDisplayNameFromUser(user) || user.email?.split("@")[0] || "Writer";
 
   const { error } = await supabase.from("profiles").upsert({
     id: user.id,

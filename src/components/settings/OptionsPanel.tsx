@@ -2,7 +2,10 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { exportDocument } from "@/lib/export";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { readCachedWriterProfile } from "@/lib/offline";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { getDisplayNameFromUser } from "@/lib/writerName";
 import { useAuthStore } from "@/store/authStore";
 import { useDocumentStore } from "@/store/documentStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -36,6 +39,11 @@ export function OptionsPanel() {
   const setAuthPanelOpen = useAuthStore((state) => state.setAuthPanelOpen);
   const signOut = useAuthStore((state) => state.signOut);
   const currentDocument = documents.find((document) => document.id === currentDocumentId);
+  const isOnline = useOnlineStatus();
+  const cachedProfile = readCachedWriterProfile();
+  const accountName =
+    getDisplayNameFromUser(user) || user?.email || cachedProfile?.displayName || cachedProfile?.email || "Local writing mode";
+  const hasAccount = Boolean(user || cachedProfile);
 
   return (
     <AnimatePresence>
@@ -159,16 +167,18 @@ export function OptionsPanel() {
               <p className="panel-kicker">Account</p>
               <div className="account-card">
                 <span>
-                  <strong>{user?.user_metadata?.display_name || user?.email || "Local writing mode"}</strong>
+                  <strong>{accountName}</strong>
                   <small>
-                    {user
-                      ? "Signed in with Supabase Auth"
+                    {hasAccount
+                      ? isOnline
+                        ? "Signed in · syncs to the cloud"
+                        : "Signed in · working offline"
                       : isSupabaseConfigured
                         ? "Sign in with email/password or magic link"
                         : "Supabase environment keys are not configured"}
                   </small>
                 </span>
-                {user ? (
+                {hasAccount ? (
                   <button type="button" onClick={() => void signOut()}>
                     Sign out
                   </button>
