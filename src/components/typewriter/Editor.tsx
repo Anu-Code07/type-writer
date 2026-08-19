@@ -1,9 +1,10 @@
 "use client";
 
-import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Cursor } from "@/components/typewriter/Cursor";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type QuillType from "quill";
+import "quill/dist/quill.snow.css";
 import { TypewriterMechanism } from "@/components/typewriter/TypewriterMechanism";
-import { useCursorPosition } from "@/hooks/useCursorPosition";
+import { htmlToPlainText, isEmptyHtml, plainTextToHtml, sanitizeHtml } from "@/lib/richText";
 import { typewriterSounds } from "@/lib/sounds";
 import { useDocumentStore } from "@/store/documentStore";
 import { useEditorStore } from "@/store/editorStore";
@@ -16,190 +17,243 @@ const fontClasses = {
   "ibm-plex-mono": "font-ibm-plex-mono",
 };
 
-const getTextHeight = (content: string, fontSize: number) => {
-  const hardLines = content.split("\n").length;
-  const softLines = Math.ceil(content.length / 62);
-  return Math.max(520, (hardLines + softLines + 7) * fontSize * 1.72);
-};
-
 interface EditorProps {
   variant?: "typewriter" | "journal";
 }
 
+const readEditorHtml = (quill: QuillType) => {
+  const html = sanitizeHtml(quill.root.innerHTML);
+  return isEmptyHtml(html) ? "" : html;
+};
+
+const writeEditorHtml = (quill: QuillType, content: string) => {
+  const nextHtml = sanitizeHtml(plainTextToHtml(content));
+
+  if (readEditorHtml(quill) === nextHtml) {
+    return;
+  }
+
+  quill.setText("");
+
+  if (nextHtml) {
+    quill.clipboard.dangerouslyPasteHTML(nextHtml);
+  }
+};
+
 export function Editor({ variant = "typewriter" }: EditorProps) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const textLayerRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const quillRef = useRef<QuillType | null>(null);
+  const applyingRef = useRef(false);
   const activeDocumentIdRef = useRef<string | null>(null);
+  const soundEnabledRef = useRef(true);
+  const isJournalRef = useRef(variant === "journal");
   const [isReturning, setIsReturning] = useState(false);
+  const [caret, setCaret] = useState({ x: 0, y: 0, height: 24 });
   const documents = useDocumentStore((state) => state.documents);
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
-  const updateCurrentDocumentContent = useDocumentStore((state) => state.updateCurrentDocumentContent);
-  const content = useEditorStore((state) => state.history.present);
-  const cursorStart = useEditorStore((state) => state.cursorStart);
-  const cursorEnd = useEditorStore((state) => state.cursorEnd);
-  const isFocused = useEditorStore((state) => state.isFocused);
   const returnPulse = useEditorStore((state) => state.returnPulse);
-  const replaceDocument = useEditorStore((state) => state.replaceDocument);
-  const applyContentChange = useEditorStore((state) => state.applyContentChange);
-  const setSelection = useEditorStore((state) => state.setSelection);
-  const setFocused = useEditorStore((state) => state.setFocused);
-  const undo = useEditorStore((state) => state.undo);
-  const redo = useEditorStore((state) => state.redo);
-  const triggerReturn = useEditorStore((state) => state.triggerReturn);
   const fontSize = useSettingsStore((state) => state.fontSize);
   const font = useSettingsStore((state) => state.font);
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const mechanicalEffects = useSettingsStore((state) => state.mechanicalEffects);
-  const cursorPosition = useCursorPosition(content, cursorStart, fontSize, textLayerRef);
+  const focusMode = useSettingsStore((state) => state.focusMode);
   const currentDocument = useMemo(
     () => documents.find((document) => document.id === currentDocumentId),
     [currentDocumentId, documents],
   );
   const isJournal = variant === "journal";
-  const editorHeight = isJournal ? undefined : getTextHeight(content, fontSize);
+  const editorHeight = Math.max(
+    520,
+    htmlToPlainText(currentDocument?.content ?? "").split("\n").length * fontSize * 1.8 + 160,
+  );
 
   useEffect(() => {
-    if (currentDocument && activeDocumentIdRef.current !== currentDocument.id) {
-      activeDocumentIdRef.current = currentDocument.id;
-      replaceDocument(currentDocument.content);
-    }
-  }, [currentDocument, replaceDocument]);
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   useEffect(() => {
-    const textarea = textareaRef.current;
+    isJournalRef.current = isJournal;
+  }, [isJournal]);
 
-    if (textarea && document.activeElement === textarea) {
-      requestAnimationFrame(() => textarea.setSelectionRange(cursorStart, cursorEnd));
+  useEffect(() => {
+    const host = hostRef.current;
+    const toolbar = toolbarRef.current;
+
+    if (!host || !toolbar) {
+      return undefined;
     }
-  }, [cursorEnd, cursorStart, content]);
 
-  const commitContent = (nextContent: string, nextCursorStart: number, nextCursorEnd: number) => {
-    applyContentChange(nextContent, nextCursorStart, nextCursorEnd);
-    updateCurrentDocumentContent(nextContent);
-  };
+    let isMounted = true;
+    let removeKeyListener: (() => void) | null = null;
 
-  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    commitContent(event.currentTarget.value, event.currentTarget.selectionStart, event.currentTarget.selectionEnd);
-  };
+    const setup = async () => {
+      const { default: Quill } = await import("quill");
 
-  const updateSelectionFromTextarea = () => {
-    const textarea = textareaRef.current;
+      if (!isMounted || quillRef.current) {
+        return;
+      }
 
-    if (!textarea) {
+      const quill = new Quill(host, {
+        theme: "snow",
+        placeholder: isJournalRef.current ? "The leaf is waiting..." : "Begin anywhere...",
+        formats: ["header", "bold", "italic", "underline", "strike", "list", "blockquote", "indent", "link", "align"],
+        modules: {
+          toolbar,
+          history: { delay: 400, maxStack: 200, userOnly: true },
+        },
+      });
+
+      quillRef.current = quill;
+
+      const documentState = useDocumentStore.getState();
+      const editorDocument = documentState.documents.find(
+        (document) => document.id === documentState.currentDocumentId,
+      );
+
+      applyingRef.current = true;
+      writeEditorHtml(quill, editorDocument?.content ?? "");
+      applyingRef.current = false;
+      activeDocumentIdRef.current = editorDocument?.id ?? null;
+      useEditorStore.getState().replaceDocument(editorDocument?.content ?? "");
+
+      const syncCaret = () => {
+        const selection = quill.getSelection();
+
+        if (!selection) {
+          return;
+        }
+
+        const bounds = quill.getBounds(selection.index, Math.max(selection.length, 0));
+
+        if (!bounds) {
+          return;
+        }
+        setCaret({
+          x: Math.max(0, bounds.left),
+          y: Math.max(0, bounds.top),
+          height: bounds.height || 24,
+        });
+      };
+
+      quill.on("text-change", (_delta, _oldContents, source) => {
+        if (applyingRef.current || source !== "user") {
+          return;
+        }
+
+        const html = readEditorHtml(quill);
+        useEditorStore.getState().applyContentChange(html, 0, 0);
+        useDocumentStore.getState().updateCurrentDocumentContent(html);
+        syncCaret();
+      });
+
+      quill.on("selection-change", (selection) => {
+        useEditorStore.getState().setFocused(Boolean(selection));
+        syncCaret();
+      });
+
+      const onKeyDown = (event: KeyboardEvent) => {
+        void typewriterSounds.unlock();
+
+        if (event.metaKey || event.ctrlKey || event.altKey) {
+          return;
+        }
+
+        if (event.key === "Enter") {
+          typewriterSounds.play("enter", soundEnabledRef.current);
+          useEditorStore.getState().triggerReturn();
+          setIsReturning(true);
+          window.setTimeout(() => setIsReturning(false), 260);
+          return;
+        }
+
+        if (event.key === "Backspace" || event.key === "Delete") {
+          typewriterSounds.play("backspace", soundEnabledRef.current);
+          return;
+        }
+
+        if (event.key === " ") {
+          typewriterSounds.play("space", soundEnabledRef.current);
+          return;
+        }
+
+        if (event.key.length === 1) {
+          typewriterSounds.play("key", soundEnabledRef.current);
+        }
+      };
+
+      quill.root.addEventListener("keydown", onKeyDown);
+      removeKeyListener = () => quill.root.removeEventListener("keydown", onKeyDown);
+    };
+
+    void setup();
+
+    return () => {
+      isMounted = false;
+      removeKeyListener?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentDocument || activeDocumentIdRef.current === currentDocument.id) {
       return;
     }
 
-    setSelection(textarea.selectionStart, textarea.selectionEnd);
-  };
+    activeDocumentIdRef.current = currentDocument.id;
+    useEditorStore.getState().replaceDocument(currentDocument.content);
 
-  const insertText = (text: string) => {
-    const textarea = textareaRef.current;
-
-    if (!textarea) {
-      return;
+    if (quillRef.current) {
+      applyingRef.current = true;
+      writeEditorHtml(quillRef.current, currentDocument.content);
+      applyingRef.current = false;
     }
-
-    const nextContent = `${content.slice(0, textarea.selectionStart)}${text}${content.slice(
-      textarea.selectionEnd,
-    )}`;
-    const nextCursor = textarea.selectionStart + text.length;
-
-    commitContent(nextContent, nextCursor, nextCursor);
-    requestAnimationFrame(() => textarea.setSelectionRange(nextCursor, nextCursor));
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    void typewriterSounds.unlock();
-
-    const isCommand = event.metaKey || event.ctrlKey;
-
-    if (isCommand && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      const nextContent = event.shiftKey ? redo() : undo();
-      updateCurrentDocumentContent(nextContent);
-      return;
-    }
-
-    if (event.key === "Tab") {
-      event.preventDefault();
-      insertText("  ");
-      typewriterSounds.play("space", soundEnabled);
-      return;
-    }
-
-    if (isCommand || event.altKey) {
-      return;
-    }
-
-    if (event.key === "Enter") {
-      typewriterSounds.play("enter", soundEnabled);
-      triggerReturn();
-      setIsReturning(true);
-      window.setTimeout(() => setIsReturning(false), 260);
-      return;
-    }
-
-    if (event.key === "Backspace" || event.key === "Delete") {
-      typewriterSounds.play("backspace", soundEnabled);
-      return;
-    }
-
-    if (event.key === " ") {
-      typewriterSounds.play("space", soundEnabled);
-      return;
-    }
-
-    if (event.key.length === 1) {
-      typewriterSounds.play("key", soundEnabled);
-    }
-  };
+  }, [currentDocument]);
 
   return (
-    <div className="typewriter-editor-shell" onClick={() => textareaRef.current?.focus()}>
+    <div className="typewriter-editor-shell">
+      <div ref={toolbarRef} className={`manuscript-toolbar ${focusMode ? "is-focus" : ""}`}>
+        <span className="manuscript-toolbar-kicker">Ink</span>
+        <select className="ql-header" defaultValue="" aria-label="Heading">
+          <option value="1">Title</option>
+          <option value="2">Heading</option>
+          <option value="3">Subhead</option>
+          <option value="">Body</option>
+        </select>
+        <button type="button" className="ql-bold" aria-label="Bold" />
+        <button type="button" className="ql-italic" aria-label="Italic" />
+        <button type="button" className="ql-underline" aria-label="Underline" />
+        <button type="button" className="ql-strike" aria-label="Strikethrough" />
+        <span className="manuscript-toolbar-rule" />
+        <button type="button" className="ql-list" value="ordered" aria-label="Numbered list" />
+        <button type="button" className="ql-list" value="bullet" aria-label="Bulleted list" />
+        <button type="button" className="ql-blockquote" aria-label="Quote" />
+        <button type="button" className="ql-indent" value="-1" aria-label="Outdent" />
+        <button type="button" className="ql-indent" value="+1" aria-label="Indent" />
+        <span className="manuscript-toolbar-rule" />
+        <button type="button" className="ql-link" aria-label="Link" />
+        <select className="ql-align" aria-label="Align" defaultValue="">
+          <option value="" />
+          <option value="center" />
+          <option value="right" />
+          <option value="justify" />
+        </select>
+        <button type="button" className="ql-clean" aria-label="Clear formatting" />
+      </div>
+
       <div
-        className={`typewriter-editor ${fontClasses[font]}`}
+        className={`typewriter-editor manuscript-quill ${fontClasses[font]}`}
         style={{ minHeight: isJournal ? "100%" : editorHeight, fontSize, lineHeight: `${fontSize * 1.72}px` }}
       >
-        <div ref={textLayerRef} className="typewriter-text-layer" aria-hidden="true">
-          {content.length > 0 ? (
-            content
-          ) : (
-            <span className="typewriter-placeholder">
-              {isJournal ? "The leaf is waiting..." : "Begin anywhere..."}
-            </span>
-          )}
-          <Cursor
-            x={cursorPosition.x}
-            y={cursorPosition.y}
-            lineHeight={cursorPosition.lineHeight}
-            isVisible={isFocused && cursorStart === cursorEnd}
+        <div ref={hostRef} className="manuscript-host" />
+        {isJournal ? null : (
+          <TypewriterMechanism
+            cursorX={caret.x}
+            cursorY={caret.y}
+            returnPulse={returnPulse}
+            isReturning={isReturning}
+            mechanicalEffects={mechanicalEffects}
           />
-          {isJournal ? null : (
-            <TypewriterMechanism
-              cursorX={cursorPosition.x}
-              cursorY={cursorPosition.y}
-              returnPulse={returnPulse}
-              isReturning={isReturning}
-              mechanicalEffects={mechanicalEffects}
-            />
-          )}
-        </div>
-        <textarea
-          ref={textareaRef}
-          aria-label="Typewriter writing area"
-          className="typewriter-input-layer"
-          spellCheck={false}
-          value={content}
-          onBlur={() => setFocused(false)}
-          onChange={handleChange}
-          onClick={updateSelectionFromTextarea}
-          onFocus={() => setFocused(true)}
-          onKeyDown={handleKeyDown}
-          onKeyUp={updateSelectionFromTextarea}
-          onPaste={() => typewriterSounds.play("key", soundEnabled)}
-          onSelect={updateSelectionFromTextarea}
-          style={{ minHeight: isJournal ? "100%" : editorHeight, fontSize, lineHeight: `${fontSize * 1.72}px` }}
-        />
+        )}
       </div>
     </div>
   );
