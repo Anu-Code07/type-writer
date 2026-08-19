@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FormEvent, useState } from "react";
 import { exportBook } from "@/lib/export";
 import { useDocumentStore } from "@/store/documentStore";
+import { useJournalStore } from "@/store/journalStore";
 
 const formatDocumentDate = (updatedAt: number) => {
   const formatter = new Intl.DateTimeFormat(undefined, {
@@ -37,10 +38,13 @@ export function DocumentSidebar() {
   const setSidebarOpen = useDocumentStore((state) => state.setSidebarOpen);
   const createDocument = useDocumentStore((state) => state.createDocument);
   const createBookFromDocuments = useDocumentStore((state) => state.createBookFromDocuments);
+  const createJournal = useDocumentStore((state) => state.createJournal);
   const deleteBook = useDocumentStore((state) => state.deleteBook);
+  const openJournal = useJournalStore((state) => state.openJournal);
   const switchDocument = useDocumentStore((state) => state.switchDocument);
   const renameDocument = useDocumentStore((state) => state.renameDocument);
   const deleteDocument = useDocumentStore((state) => state.deleteDocument);
+  const beginWriting = useJournalStore((state) => state.beginWriting);
   const [isCreatingBook, setIsCreatingBook] = useState(false);
   const [bookTitle, setBookTitle] = useState("");
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
@@ -70,8 +74,8 @@ export function DocumentSidebar() {
   const handleCreateBook = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (selectedDocumentIds.length < 2) {
-      window.alert("Choose at least two documents to create a book.");
+    if (selectedDocumentIds.length < 1) {
+      window.alert("Choose at least one page to bind into a journal.");
       return;
     }
 
@@ -83,7 +87,21 @@ export function DocumentSidebar() {
       setBookTitle("");
       setSelectedDocumentIds([]);
       setIsCreatingBook(false);
+      handleOpenJournal(book.id);
     });
+  };
+
+  const handleStartBlankJournal = () => {
+    void createJournal(bookTitle || "My Journal").then((book) => {
+      setBookTitle("");
+      setIsCreatingBook(false);
+      handleOpenJournal(book.id);
+    });
+  };
+
+  const handleOpenJournal = (bookId: string) => {
+    setSidebarOpen(false);
+    openJournal(bookId);
   };
 
   return (
@@ -106,19 +124,23 @@ export function DocumentSidebar() {
             exit={{ x: -360, opacity: 0 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
-            <p className="panel-kicker">Library</p>
+            <p className="panel-kicker">Journals</p>
             {books.length > 0 ? (
               <div className="book-shelf">
                 {books.map((book) => (
                   <div key={book.id} className="book-card">
-                    <button type="button" className="book-cover-button" onClick={() => switchDocument(book.documentIds[0])}>
+                    <button type="button" className="book-cover-button" onClick={() => handleOpenJournal(book.id)}>
                       <span className="book-cover-decoration" />
                       <strong>{book.title}</strong>
                       <small>
-                        {book.documentIds.length} chapters · {formatDocumentDate(book.updatedAt)}
+                        {book.documentIds.length} {book.documentIds.length === 1 ? "leaf" : "leaves"} ·{" "}
+                        {formatDocumentDate(book.updatedAt)}
                       </small>
                     </button>
                     <span className="book-card-actions">
+                      <button type="button" onClick={() => handleOpenJournal(book.id)}>
+                        Open
+                      </button>
                       <button type="button" onClick={() => exportBook(book, documents, "txt")}>
                         TXT
                       </button>
@@ -134,13 +156,16 @@ export function DocumentSidebar() {
               </div>
             ) : (
               <div className="empty-book-shelf">
-                Combine documents into a book when a draft starts becoming a manuscript.
+                Bind pages into a journal with a cover, contents, and turning leaves.
               </div>
             )}
 
-            <p className="panel-kicker">Documents as books</p>
+            <p className="panel-kicker">Loose pages</p>
             <div className="document-list">
-              {documents.map((document) => (
+              {documents.map((document) => {
+                const boundJournal = books.find((book) => book.documentIds.includes(document.id));
+
+                return (
                 <div
                   key={document.id}
                   className={`document-row ${document.id === currentDocumentId ? "document-row-active" : ""}`}
@@ -152,9 +177,24 @@ export function DocumentSidebar() {
                   >
                     <span className="document-book-spine" />
                     <strong>{document.title || "Untitled"}</strong>
-                    <small>{formatDocumentDate(document.updatedAt)}</small>
+                    <small>
+                      {formatDocumentDate(document.updatedAt)}
+                      {boundJournal ? ` · ${boundJournal.title}` : ""}
+                    </small>
                   </button>
                   <span className="document-row-actions">
+                    {boundJournal ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleOpenJournal(boundJournal.id);
+                          switchDocument(document.id);
+                          beginWriting(document.id);
+                        }}
+                      >
+                        Journal
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       aria-label={`Rename ${document.title}`}
@@ -171,7 +211,8 @@ export function DocumentSidebar() {
                     </button>
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="document-sidebar-footer">
@@ -185,11 +226,11 @@ export function DocumentSidebar() {
                     onSubmit={handleCreateBook}
                   >
                     <label>
-                      <span>Book title</span>
+                      <span>Journal title</span>
                       <input
                         value={bookTitle}
                         onChange={(event) => setBookTitle(event.currentTarget.value)}
-                        placeholder="Collected Letters"
+                        placeholder="Morning Pages"
                       />
                     </label>
                     <div className="book-builder-documents">
@@ -205,7 +246,10 @@ export function DocumentSidebar() {
                       ))}
                     </div>
                     <div className="book-builder-actions">
-                      <button type="submit">Create Book</button>
+                      <button type="submit">Bind selected pages</button>
+                      <button type="button" onClick={handleStartBlankJournal}>
+                        Blank journal
+                      </button>
                       <button type="button" onClick={() => setIsCreatingBook(false)}>
                         Cancel
                       </button>
@@ -214,14 +258,14 @@ export function DocumentSidebar() {
                 ) : null}
               </AnimatePresence>
               <button type="button" className="new-document-button" onClick={() => void createDocument()}>
-                + New Document
+                + New page
               </button>
               <button
                 type="button"
                 className="new-document-button book-builder-toggle"
                 onClick={() => setIsCreatingBook((isOpen) => !isOpen)}
               >
-                + Create Book
+                + Bind journal
               </button>
             </div>
           </motion.aside>

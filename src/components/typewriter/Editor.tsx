@@ -22,7 +22,11 @@ const getTextHeight = (content: string, fontSize: number) => {
   return Math.max(520, (hardLines + softLines + 7) * fontSize * 1.72);
 };
 
-export function Editor() {
+interface EditorProps {
+  variant?: "typewriter" | "journal";
+}
+
+export function Editor({ variant = "typewriter" }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const activeDocumentIdRef = useRef<string | null>(null);
@@ -51,7 +55,8 @@ export function Editor() {
     () => documents.find((document) => document.id === currentDocumentId),
     [currentDocumentId, documents],
   );
-  const editorHeight = getTextHeight(content, fontSize);
+  const isJournal = variant === "journal";
+  const editorHeight = isJournal ? undefined : getTextHeight(content, fontSize);
 
   useEffect(() => {
     if (currentDocument && activeDocumentIdRef.current !== currentDocument.id) {
@@ -153,23 +158,31 @@ export function Editor() {
     <div className="typewriter-editor-shell" onClick={() => textareaRef.current?.focus()}>
       <div
         className={`typewriter-editor ${fontClasses[font]}`}
-        style={{ minHeight: editorHeight, fontSize, lineHeight: `${fontSize * 1.72}px` }}
+        style={{ minHeight: isJournal ? "100%" : editorHeight, fontSize, lineHeight: `${fontSize * 1.72}px` }}
       >
         <div ref={textLayerRef} className="typewriter-text-layer" aria-hidden="true">
-          {content.length > 0 ? content : <span className="typewriter-placeholder">Begin anywhere...</span>}
+          {content.length > 0 ? (
+            content
+          ) : (
+            <span className="typewriter-placeholder">
+              {isJournal ? "The leaf is waiting..." : "Begin anywhere..."}
+            </span>
+          )}
           <Cursor
             x={cursorPosition.x}
             y={cursorPosition.y}
             lineHeight={cursorPosition.lineHeight}
             isVisible={isFocused && cursorStart === cursorEnd}
           />
-          <TypewriterMechanism
-            cursorX={cursorPosition.x}
-            cursorY={cursorPosition.y}
-            returnPulse={returnPulse}
-            isReturning={isReturning}
-            mechanicalEffects={mechanicalEffects}
-          />
+          {isJournal ? null : (
+            <TypewriterMechanism
+              cursorX={cursorPosition.x}
+              cursorY={cursorPosition.y}
+              returnPulse={returnPulse}
+              isReturning={isReturning}
+              mechanicalEffects={mechanicalEffects}
+            />
+          )}
         </div>
         <textarea
           ref={textareaRef}
@@ -185,7 +198,7 @@ export function Editor() {
           onKeyUp={updateSelectionFromTextarea}
           onPaste={() => typewriterSounds.play("key", soundEnabled)}
           onSelect={updateSelectionFromTextarea}
-          style={{ minHeight: editorHeight, fontSize, lineHeight: `${fontSize * 1.72}px` }}
+          style={{ minHeight: isJournal ? "100%" : editorHeight, fontSize, lineHeight: `${fontSize * 1.72}px` }}
         />
       </div>
     </div>

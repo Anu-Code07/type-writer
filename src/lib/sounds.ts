@@ -1,4 +1,4 @@
-type SoundKind = "key" | "space" | "backspace" | "enter" | "bell" | "return";
+type SoundKind = "key" | "space" | "backspace" | "enter" | "bell" | "return" | "page";
 
 class TypewriterSoundEngine {
   private context: AudioContext | null = null;
@@ -38,6 +38,10 @@ class TypewriterSoundEngine {
       return;
     }
 
+    if (kind === "page") {
+      this.playTone(180 + Math.random() * 40, 0.12, 0.04);
+    }
+
     const now = this.context.currentTime;
     const noiseBuffer = this.createNoiseBuffer(kind);
     const source = this.context.createBufferSource();
@@ -47,7 +51,7 @@ class TypewriterSoundEngine {
     source.buffer = noiseBuffer;
     filter.type = "bandpass";
     filter.frequency.value = this.frequencyFor(kind);
-    filter.Q.value = kind === "return" ? 0.8 : 2.6;
+    filter.Q.value = kind === "return" || kind === "page" ? 0.8 : 2.6;
     gain.gain.setValueAtTime(this.volumeFor(kind), now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + this.durationFor(kind));
 
@@ -74,7 +78,7 @@ class TypewriterSoundEngine {
     const frameCount = Math.max(1, Math.floor(context.sampleRate * duration));
     const buffer = context.createBuffer(1, frameCount, context.sampleRate);
     const data = buffer.getChannelData(0);
-    const decay = kind === "return" ? 1.8 : 7;
+    const decay = kind === "return" || kind === "page" ? 1.8 : 7;
 
     for (let index = 0; index < frameCount; index += 1) {
       const progress = index / frameCount;
@@ -112,6 +116,7 @@ class TypewriterSoundEngine {
       enter: 720,
       bell: 1046,
       return: 540,
+      page: 420,
     };
 
     return baseFrequencies[kind] + Math.random() * 280;
@@ -125,6 +130,7 @@ class TypewriterSoundEngine {
       enter: 0.055,
       bell: 0.1,
       return: 0.18,
+      page: 0.22,
     };
 
     return durations[kind];
@@ -138,6 +144,7 @@ class TypewriterSoundEngine {
       enter: 0.14,
       bell: 0.08,
       return: 0.1,
+      page: 0.07,
     };
 
     return volumes[kind];

@@ -33,6 +33,8 @@ interface DocumentState {
   syncWithCloud: () => Promise<void>;
   createDocument: () => Promise<WritingDocument>;
   createBookFromDocuments: (title: string, documentIds: string[]) => Promise<WritingBook | null>;
+  createJournal: (title?: string) => Promise<WritingBook>;
+  addPageToBook: (bookId: string) => Promise<WritingDocument | null>;
   deleteBook: (bookId: string) => Promise<void>;
   renameDocument: (documentId: string, title: string) => Promise<void>;
   deleteDocument: (documentId: string) => Promise<void>;
@@ -139,7 +141,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         get().documents.some((document) => document.id === documentId),
     );
 
-    if (uniqueDocumentIds.length < 2) {
+    if (uniqueDocumentIds.length < 1) {
       return null;
     }
 
@@ -155,6 +157,56 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }));
 
     return book;
+  },
+  createJournal: async (title = "My Journal") => {
+    const document = createEmptyDocument("First leaf");
+    const book = createBook(title, [document.id]);
+    await saveDocument(document);
+    await saveBook(book);
+    void upsertCloudDocument(document, getCloudUser()).catch((error) =>
+      set({ cloudSyncError: getErrorMessage(error) }),
+    );
+    void upsertCloudBook(book, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+
+    set((state) => ({
+      documents: sortDocuments([document, ...state.documents]),
+      books: sortBooks([book, ...state.books]),
+      currentDocumentId: document.id,
+      isSidebarOpen: false,
+      lastSavedAt: Date.now(),
+    }));
+
+    return book;
+  },
+  addPageToBook: async (bookId) => {
+    const book = get().books.find((item) => item.id === bookId);
+
+    if (!book) {
+      return null;
+    }
+
+    const document = createEmptyDocument(`Entry ${book.documentIds.length + 1}`);
+    const updatedBook = {
+      ...book,
+      documentIds: [...book.documentIds, document.id],
+      updatedAt: Date.now(),
+    };
+
+    await saveDocument(document);
+    await saveBook(updatedBook);
+    void upsertCloudDocument(document, getCloudUser()).catch((error) =>
+      set({ cloudSyncError: getErrorMessage(error) }),
+    );
+    void upsertCloudBook(updatedBook, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+
+    set((state) => ({
+      documents: sortDocuments([document, ...state.documents]),
+      books: sortBooks(state.books.map((item) => (item.id === bookId ? updatedBook : item))),
+      currentDocumentId: document.id,
+      lastSavedAt: Date.now(),
+    }));
+
+    return document;
   },
   deleteBook: async (bookId) => {
     await deleteBookById(bookId);
@@ -222,7 +274,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         ...book,
         documentIds: book.documentIds.filter((bookDocumentId) => bookDocumentId !== documentId),
       }))
-      .filter((book) => book.documentIds.length > 1);
+      .filter((book) => book.documentIds.length > 0);
     const removedBooks = get().books.filter((book) => !updatedBooks.some((updatedBook) => updatedBook.id === book.id));
 
     await deleteDocumentById(documentId);
