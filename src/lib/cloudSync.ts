@@ -173,3 +173,26 @@ export const deleteCloudBook = async (bookId: string, user: User | null) => {
     throw error;
   }
 };
+
+export const upsertCloudProfile = async (user: User | null) => {
+  if (!supabase || !user) {
+    return;
+  }
+
+  const displayName =
+    (typeof user.user_metadata?.display_name === "string" && user.user_metadata.display_name) ||
+    (typeof user.user_metadata?.username === "string" && user.user_metadata.username) ||
+    user.email?.split("@")[0] ||
+    "Writer";
+
+  const { error } = await supabase.from("profiles").upsert({
+    id: user.id,
+    display_name: displayName,
+    email: user.email,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    throw error;
+  }
+};
