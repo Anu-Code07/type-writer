@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { exportBook } from "@/lib/export";
+import { parseWritingFile } from "@/lib/importFile";
 import { useDocumentStore } from "@/store/documentStore";
 import { useJournalStore } from "@/store/journalStore";
 
@@ -45,6 +46,9 @@ export function DocumentSidebar() {
   const renameDocument = useDocumentStore((state) => state.renameDocument);
   const deleteDocument = useDocumentStore((state) => state.deleteDocument);
   const beginWriting = useJournalStore((state) => state.beginWriting);
+  const importDocument = useDocumentStore((state) => state.importDocument);
+  const closeJournal = useJournalStore((state) => state.closeJournal);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [isCreatingBook, setIsCreatingBook] = useState(false);
   const [bookTitle, setBookTitle] = useState("");
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
@@ -104,6 +108,25 @@ export function DocumentSidebar() {
     openJournal(bookId);
   };
 
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const imported = await parseWritingFile(file);
+      await importDocument(imported.title, imported.content);
+      closeJournal();
+      setSidebarOpen(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not import that file.");
+    } finally {
+      if (importInputRef.current) {
+        importInputRef.current.value = "";
+      }
+    }
+  };
+
   return (
     <AnimatePresence>
       {isSidebarOpen ? (
@@ -146,6 +169,9 @@ export function DocumentSidebar() {
                       </button>
                       <button type="button" onClick={() => exportBook(book, documents, "markdown")}>
                         MD
+                      </button>
+                      <button type="button" onClick={() => exportBook(book, documents, "pdf")}>
+                        PDF
                       </button>
                       <button type="button" onClick={() => void deleteBook(book.id)}>
                         Delete
@@ -259,6 +285,16 @@ export function DocumentSidebar() {
               </AnimatePresence>
               <button type="button" className="new-document-button" onClick={() => void createDocument()}>
                 + New page
+              </button>
+              <input
+                ref={importInputRef}
+                accept=".txt,.md,.markdown,text/plain,text/markdown"
+                className="import-file-input"
+                type="file"
+                onChange={(event) => void handleImportFile(event.currentTarget.files?.[0])}
+              />
+              <button type="button" className="new-document-button" onClick={() => importInputRef.current?.click()}>
+                + Import .txt / .md
               </button>
               <button
                 type="button"

@@ -1,13 +1,16 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { useRef, useState } from "react";
 import { exportDocument } from "@/lib/export";
+import { parseWritingFile } from "@/lib/importFile";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { readCachedWriterProfile } from "@/lib/offline";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getDisplayNameFromUser } from "@/lib/writerName";
 import { useAuthStore } from "@/store/authStore";
 import { useDocumentStore } from "@/store/documentStore";
+import { useJournalStore } from "@/store/journalStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
 const paperOptions = [
@@ -35,6 +38,8 @@ export function OptionsPanel() {
   const updateSettings = useSettingsStore((state) => state.update);
   const documents = useDocumentStore((state) => state.documents);
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
+  const importDocument = useDocumentStore((state) => state.importDocument);
+  const closeJournal = useJournalStore((state) => state.closeJournal);
   const user = useAuthStore((state) => state.user);
   const setAuthPanelOpen = useAuthStore((state) => state.setAuthPanelOpen);
   const signOut = useAuthStore((state) => state.signOut);
@@ -44,6 +49,33 @@ export function OptionsPanel() {
   const accountName =
     getDisplayNameFromUser(user) || user?.email || cachedProfile?.displayName || cachedProfile?.email || "Local writing mode";
   const hasAccount = Boolean(user || cachedProfile);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleImport = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const imported = await parseWritingFile(file);
+      await importDocument(imported.title, imported.content);
+      closeJournal();
+      setOptionsOpen(false);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Could not import that file.");
+    } finally {
+      setIsImporting(false);
+
+      if (importInputRef.current) {
+        importInputRef.current.value = "";
+      }
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -148,7 +180,7 @@ export function OptionsPanel() {
                   disabled={!currentDocument}
                   onClick={() => currentDocument && exportDocument(currentDocument, "txt")}
                 >
-                  Plain Text
+                  TXT
                 </button>
                 <button
                   type="button"
@@ -157,10 +189,31 @@ export function OptionsPanel() {
                 >
                   Markdown
                 </button>
-                <button type="button" disabled title="PDF export can be added cleanly later.">
-                  PDF Soon
+                <button
+                  type="button"
+                  disabled={!currentDocument}
+                  onClick={() => currentDocument && exportDocument(currentDocument, "pdf")}
+                >
+                  PDF
                 </button>
               </div>
+            </section>
+
+            <section>
+              <p className="panel-kicker">Import</p>
+              <div className="export-row">
+                <input
+                  ref={importInputRef}
+                  accept=".txt,.md,.markdown,text/plain,text/markdown"
+                  className="import-file-input"
+                  type="file"
+                  onChange={(event) => void handleImport(event.currentTarget.files?.[0])}
+                />
+                <button type="button" disabled={isImporting} onClick={() => importInputRef.current?.click()}>
+                  {isImporting ? "Importing..." : "TXT or Markdown"}
+                </button>
+              </div>
+              {importError ? <p className="import-error">{importError}</p> : null}
             </section>
 
             <section>
