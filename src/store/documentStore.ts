@@ -38,7 +38,7 @@ interface DocumentState {
   importDocument: (title: string, content: string) => Promise<WritingDocument>;
   createBookFromDocuments: (title: string, documentIds: string[]) => Promise<WritingBook | null>;
   createJournal: (title?: string) => Promise<WritingBook>;
-  addPageToBook: (bookId: string) => Promise<WritingDocument | null>;
+  addPageToBook: (bookId: string, page?: { title?: string; content?: string }) => Promise<WritingDocument | null>;
   deleteBook: (bookId: string) => Promise<void>;
   renameDocument: (documentId: string, title: string) => Promise<void>;
   renameBook: (bookId: string, title: string) => Promise<void>;
@@ -212,14 +212,17 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     return book;
   },
-  addPageToBook: async (bookId) => {
+  addPageToBook: async (bookId, page) => {
     const book = get().books.find((item) => item.id === bookId);
 
     if (!book) {
       return null;
     }
 
-    const document = createEmptyDocument(`Entry ${book.documentIds.length + 1}`);
+    const document = {
+      ...createEmptyDocument(page?.title?.trim() || `Entry ${book.documentIds.length + 1}`),
+      content: page?.content ?? "",
+    };
     const updatedBook = {
       ...book,
       documentIds: [...book.documentIds, document.id],

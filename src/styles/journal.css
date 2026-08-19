@@ -46,6 +46,14 @@
   z-index: 2;
 }
 
+.journal-toolbar-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+  justify-content: center;
+}
+
 .journal-toolbar p {
   color: rgba(248, 239, 224, 0.7);
   margin: 0;

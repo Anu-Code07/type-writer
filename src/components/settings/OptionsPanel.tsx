@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef, useState } from "react";
-import { exportDocument } from "@/lib/export";
+import { exportBook, exportDocument } from "@/lib/export";
 import { parseWritingFile } from "@/lib/importFile";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { readCachedWriterProfile } from "@/lib/offline";
@@ -37,13 +37,20 @@ export function OptionsPanel() {
   const focusMode = useSettingsStore((state) => state.focusMode);
   const updateSettings = useSettingsStore((state) => state.update);
   const documents = useDocumentStore((state) => state.documents);
+  const books = useDocumentStore((state) => state.books);
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
   const importDocument = useDocumentStore((state) => state.importDocument);
+  const addPageToBook = useDocumentStore((state) => state.addPageToBook);
   const closeJournal = useJournalStore((state) => state.closeJournal);
+  const openBookId = useJournalStore((state) => state.openBookId);
+  const requestLastSpread = useJournalStore((state) => state.requestLastSpread);
+  const beginWriting = useJournalStore((state) => state.beginWriting);
+  const switchDocument = useDocumentStore((state) => state.switchDocument);
   const user = useAuthStore((state) => state.user);
   const setAuthPanelOpen = useAuthStore((state) => state.setAuthPanelOpen);
   const signOut = useAuthStore((state) => state.signOut);
   const currentDocument = documents.find((document) => document.id === currentDocumentId);
+  const openBook = books.find((book) => book.id === openBookId);
   const isOnline = useOnlineStatus();
   const cachedProfile = readCachedWriterProfile();
   const accountName =
@@ -63,8 +70,20 @@ export function OptionsPanel() {
 
     try {
       const imported = await parseWritingFile(file);
-      await importDocument(imported.title, imported.content);
-      closeJournal();
+
+      if (openBook) {
+        const document = await addPageToBook(openBook.id, imported);
+
+        if (document) {
+          switchDocument(document.id);
+          beginWriting(document.id);
+          requestLastSpread();
+        }
+      } else {
+        await importDocument(imported.title, imported.content);
+        closeJournal();
+      }
+
       setOptionsOpen(false);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Could not import that file.");
@@ -173,7 +192,7 @@ export function OptionsPanel() {
             </section>
 
             <section>
-              <p className="panel-kicker">Export</p>
+              <p className="panel-kicker">{openBook ? "Export this page" : "Export"}</p>
               <div className="export-row">
                 <button
                   type="button"
@@ -199,8 +218,25 @@ export function OptionsPanel() {
               </div>
             </section>
 
+            {openBook ? (
+              <section>
+                <p className="panel-kicker">Export journal</p>
+                <div className="export-row">
+                  <button type="button" onClick={() => exportBook(openBook, documents, "txt")}>
+                    TXT
+                  </button>
+                  <button type="button" onClick={() => exportBook(openBook, documents, "markdown")}>
+                    Markdown
+                  </button>
+                  <button type="button" onClick={() => exportBook(openBook, documents, "pdf")}>
+                    PDF
+                  </button>
+                </div>
+              </section>
+            ) : null}
+
             <section>
-              <p className="panel-kicker">Import</p>
+              <p className="panel-kicker">{openBook ? "Import into journal" : "Import"}</p>
               <div className="export-row">
                 <input
                   ref={importInputRef}
