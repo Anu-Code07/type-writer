@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { upsertCloudProfile } from "@/lib/cloudSync";
 
 interface AuthState {
   session: Session | null;
@@ -59,6 +60,12 @@ export const useAuthStore = create<AuthState>((set) => ({
           authError: null,
           hasSkippedAuth: false,
         });
+
+        if (nextSession?.user) {
+          void upsertCloudProfile(nextSession.user).catch((profileError) => {
+            console.warn("Could not save profile", profileError);
+          });
+        }
       });
     }
   },
@@ -76,6 +83,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ authError: getFriendlyAuthError(error.message), authMessage: null });
       return;
     }
+
+    void upsertCloudProfile(data.user).catch((profileError) => {
+      console.warn("Could not save profile", profileError);
+    });
 
     set({
       session: data.session,
@@ -107,13 +118,17 @@ export const useAuthStore = create<AuthState>((set) => ({
       return;
     }
 
+    void upsertCloudProfile(data.user).catch((profileError) => {
+      console.warn("Could not save profile", profileError);
+    });
+
     set({
       session: data.session,
       user: data.user,
       isAuthPanelOpen: !data.session,
       authError: null,
       authMessage: data.session
-        ? "Account created."
+        ? "Account created. You should now appear in Supabase Authentication and the profiles table."
         : "Check your email to confirm your account, then come back to sign in.",
     });
   },
