@@ -184,44 +184,31 @@
 
 .typewriter-stage {
   max-width: 1140px;
+  min-height: min(78vh, 840px);
   perspective: 1800px;
   position: relative;
+  transform-style: preserve-3d;
   width: min(94vw, 1140px);
 }
 
-.typewriter-stage::before {
-  animation: journal-cover-open 1120ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 16%),
-    linear-gradient(145deg, #3f2a26, #211917 52%, #130f0d);
-  border: 1px solid rgba(255, 234, 202, 0.1);
-  border-radius: 30px 24px 24px 30px;
-  box-shadow:
-    0 38px 80px rgba(0, 0, 0, 0.42),
-    inset 18px 0 26px rgba(0, 0, 0, 0.3),
-    inset -1px 0 rgba(255, 255, 255, 0.07);
-  content: "";
-  inset: -18px -14px -18px -14px;
-  pointer-events: none;
-  position: absolute;
-  transform-origin: left center;
-  z-index: 8;
+.typewriter-stage.is-closed:not(.is-opening) .typewriter-paper {
+  visibility: hidden;
 }
 
-.typewriter-stage::after {
-  animation: journal-band-fade 900ms ease 500ms forwards;
-  background: rgba(12, 10, 9, 0.74);
-  border-radius: 999px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
-  content: "";
-  height: 28px;
-  left: 50%;
-  pointer-events: none;
+.desk-cover-scene {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  perspective: 1800px;
   position: absolute;
-  top: 49%;
-  transform: translate(-50%, -50%);
-  width: 34%;
-  z-index: 9;
+  transform-style: preserve-3d;
+  z-index: 12;
+}
+
+.typewriter-stage.is-closed:not(.is-opening) .desk-cover-scene {
+  min-height: min(78vh, 840px);
+  position: relative;
 }
 
 .typewriter-paper {
@@ -1121,27 +1108,6 @@
 .typewriter-workspace-focus + .status-indicator,
 .typewriter-workspace-focus ~ .status-indicator {
   display: none;
-}
-
-@keyframes journal-cover-open {
-  0% {
-    opacity: 1;
-    transform: rotateY(0deg) translateZ(28px);
-  }
-  58% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: rotateY(-112deg) translateZ(28px);
-  }
-}
-
-@keyframes journal-band-fade {
-  to {
-    opacity: 0;
-    transform: translate(-50%, -50%) scaleX(0.78);
-  }
 }
 
 @keyframes paper-wake {

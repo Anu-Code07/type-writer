@@ -174,9 +174,8 @@
 }
 
 .journal-cover-kicker,
-.journal-cover-author,
 .journal-cover-meta,
-.journal-cover-hint {
+.journal-cover-open {
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -187,15 +186,27 @@
   opacity: 0.78;
 }
 
-.journal-cover-title {
+.journal-cover-greeting {
   align-self: center;
   font-family: var(--font-cormorant), Georgia, "Times New Roman", serif;
-  font-size: clamp(2.4rem, 6vw, 3.8rem);
+  font-size: clamp(2.6rem, 7vw, 4.1rem);
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 0.92;
-  margin-top: 28px;
-  max-width: 12ch;
+  margin-top: 36px;
+  max-width: 10ch;
+}
+
+.journal-cover-title {
+  align-self: center;
+  font-family: var(--font-cormorant), Georgia, "Times New Roman", serif;
+  font-size: clamp(1.15rem, 2.8vw, 1.55rem);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  margin-top: 18px;
+  max-width: 16ch;
+  opacity: 0.86;
 }
 
 .journal-cover-rule {
@@ -207,14 +218,8 @@
   width: 64px;
 }
 
-.journal-cover-author {
-  font-size: 0.72rem;
-  margin-top: 18px;
-  opacity: 0.82;
-}
-
 .journal-cover-meta {
-  bottom: 86px;
+  bottom: 96px;
   font-size: 0.66rem;
   opacity: 0.7;
   position: absolute;
@@ -227,12 +232,18 @@
   opacity: 0.8;
 }
 
-.journal-cover-hint {
-  animation: journal-hint-pulse 2.8s ease-in-out infinite;
+.journal-cover-open {
+  background: color-mix(in srgb, var(--foil) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--foil) 48%, transparent);
+  border-radius: 999px;
   bottom: 36px;
-  font-size: 0.64rem;
-  opacity: 0.58;
+  font-size: 0.68rem;
+  padding: 10px 22px;
   position: absolute;
+}
+
+.journal-cover.is-opening {
+  pointer-events: none;
 }
 
 .journal-spread-frame {
@@ -538,16 +549,6 @@
 
 .journal-scene.is-focus {
   padding-top: 28px;
-}
-
-@keyframes journal-hint-pulse {
-  0%,
-  100% {
-    opacity: 0.38;
-  }
-  50% {
-    opacity: 0.8;
-  }
 }
 
 @media (max-width: 860px) {
