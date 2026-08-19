@@ -12,6 +12,7 @@ import {
   spreadIndexForSheet,
 } from "@/lib/journal";
 import { typewriterSounds } from "@/lib/sounds";
+import { getWriterCoverName } from "@/lib/writerName";
 import { useAuthStore } from "@/store/authStore";
 import { useDocumentStore } from "@/store/documentStore";
 import { useJournalStore } from "@/store/journalStore";
@@ -63,7 +64,7 @@ export function BookJournal() {
   const { left, right } = getSpreadSheets(sheets, spreadIndex, compact);
   const palette = getCoverPalette(book?.id ?? "journal");
   const coverSheet = sheets[0]?.kind === "cover" ? sheets[0] : null;
-  const authorName = user?.user_metadata?.display_name || user?.email || "Private writer";
+  const authorName = getWriterCoverName(user);
 
   useEffect(() => {
     if (openBookId && !book) {
@@ -291,10 +292,7 @@ export function BookJournal() {
               chapterCount={coverSheet.chapterCount}
               wordCount={coverSheet.wordCount}
               palette={palette}
-              onOpen={() => {
-                playPageSound();
-                openCover();
-              }}
+              onOpen={openCover}
             />
           )}
         </AnimatePresence>

@@ -40,7 +40,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
     set({
       openBookId: bookId,
-      isCoverOpen: bookmark?.isCoverOpen ?? false,
+      isCoverOpen: false,
       spreadIndex: bookmark?.spreadIndex ?? 0,
       turnDirection: 1,
       writingDocumentId: null,
