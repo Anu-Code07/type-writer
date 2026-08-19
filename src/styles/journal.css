@@ -53,14 +53,32 @@
 }
 
 .journal-toolbar strong,
+.journal-toolbar-title,
 .journal-toolbar span {
   display: block;
 }
 
-.journal-toolbar strong {
+.journal-toolbar strong,
+.journal-toolbar-title {
   font-family: var(--font-cormorant), Georgia, serif;
   font-size: 1.35rem;
   font-weight: 600;
+}
+
+.journal-toolbar-title {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  color: inherit;
+  padding: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.journal-toolbar-title:focus {
+  border-bottom-color: rgba(255, 247, 232, 0.28);
+  outline: none;
 }
 
 .journal-toolbar span {
@@ -233,13 +251,50 @@
 }
 
 .journal-cover-open {
+  appearance: none;
   background: color-mix(in srgb, var(--foil) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--foil) 48%, transparent);
   border-radius: 999px;
   bottom: 36px;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 0.68rem;
   padding: 10px 22px;
   position: absolute;
+}
+
+.journal-cover input.is-editable {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: inherit;
+  cursor: text;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  padding: 4px 8px;
+  position: relative;
+  text-align: center;
+  text-transform: inherit;
+  z-index: 2;
+}
+
+.journal-cover-kicker.is-editable {
+  width: min(100%, 18ch);
+}
+
+.journal-cover-title.is-editable {
+  width: min(100%, 16ch);
+}
+
+.journal-cover input.is-editable:focus {
+  border-color: color-mix(in srgb, var(--foil) 42%, transparent);
+  outline: none;
 }
 
 .journal-cover.is-opening {

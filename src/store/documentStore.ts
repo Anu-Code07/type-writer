@@ -40,6 +40,7 @@ interface DocumentState {
   addPageToBook: (bookId: string) => Promise<WritingDocument | null>;
   deleteBook: (bookId: string) => Promise<void>;
   renameDocument: (documentId: string, title: string) => Promise<void>;
+  renameBook: (bookId: string, title: string) => Promise<void>;
   deleteDocument: (documentId: string) => Promise<void>;
   switchDocument: (documentId: string) => void;
   updateCurrentDocumentContent: (content: string) => void;
@@ -251,6 +252,28 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     await saveDocument(updatedDocument);
     void upsertCloudDocument(updatedDocument, getCloudUser()).catch(catchCloud);
+    set({ lastSavedAt: Date.now() });
+  },
+  renameBook: async (bookId, title) => {
+    const sanitizedTitle = title.trim() || "Untitled";
+    const book = get().books.find((item) => item.id === bookId);
+
+    if (!book) {
+      return;
+    }
+
+    const updatedBook = {
+      ...book,
+      title: sanitizedTitle,
+      updatedAt: Date.now(),
+    };
+
+    set((state) => ({
+      books: sortBooks(state.books.map((item) => (item.id === bookId ? updatedBook : item))),
+    }));
+
+    await saveBook(updatedBook);
+    void upsertCloudBook(updatedBook, getCloudUser()).catch(catchCloud);
     set({ lastSavedAt: Date.now() });
   },
   deleteDocument: async (documentId) => {

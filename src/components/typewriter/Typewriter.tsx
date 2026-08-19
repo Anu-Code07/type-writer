@@ -16,7 +16,10 @@ export function Typewriter() {
   const isLoaded = useDocumentStore((state) => state.isLoaded);
   const documents = useDocumentStore((state) => state.documents);
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
+  const renameDocument = useDocumentStore((state) => state.renameDocument);
   const focusMode = useSettingsStore((state) => state.focusMode);
+  const manuscriptLabel = useSettingsStore((state) => state.manuscriptLabel);
+  const updateSettings = useSettingsStore((state) => state.update);
   const user = useAuthStore((state) => state.user);
   const [isCoverOpen, setIsCoverOpen] = useState(deskOpenedThisSession);
   const [isOpening, setIsOpening] = useState(false);
@@ -46,9 +49,16 @@ export function Typewriter() {
           {isCoverOpen ? null : (
             <DeskCover
               coverName={coverName}
+              kicker={manuscriptLabel}
               title={currentDocument?.title || "Untitled"}
               onBeginOpen={() => setIsOpening(true)}
               onOpen={handleOpen}
+              onRenameKicker={(nextKicker) => updateSettings({ manuscriptLabel: nextKicker })}
+              onRenameTitle={(nextTitle) => {
+                if (currentDocument) {
+                  void renameDocument(currentDocument.id, nextTitle);
+                }
+              }}
             />
           )}
         </AnimatePresence>

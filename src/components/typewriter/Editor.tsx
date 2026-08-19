@@ -58,6 +58,7 @@ export function Editor({ variant = "typewriter" }: EditorProps) {
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const mechanicalEffects = useSettingsStore((state) => state.mechanicalEffects);
   const focusMode = useSettingsStore((state) => state.focusMode);
+  const manuscriptLabel = useSettingsStore((state) => state.manuscriptLabel);
   const currentDocument = useMemo(
     () => documents.find((document) => document.id === currentDocumentId),
     [currentDocumentId, documents],
@@ -211,6 +212,7 @@ export function Editor({ variant = "typewriter" }: EditorProps) {
 
   return (
     <div className="typewriter-editor-shell">
+      {isJournal ? null : <span className="typewriter-manuscript-label">{manuscriptLabel}</span>}
       <div ref={toolbarRef} className={`manuscript-toolbar ${focusMode ? "is-focus" : ""}`}>
         <span className="manuscript-toolbar-kicker">Ink</span>
         <select className="ql-header" defaultValue="" aria-label="Heading">

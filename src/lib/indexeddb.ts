@@ -23,6 +23,7 @@ export interface TypewriterSettings {
   soundEnabled: boolean;
   mechanicalEffects: boolean;
   focusMode: boolean;
+  manuscriptLabel: string;
 }
 
 export interface PendingDelete {
