@@ -47,8 +47,12 @@ export function DocumentSidebar() {
   const deleteDocument = useDocumentStore((state) => state.deleteDocument);
   const beginWriting = useJournalStore((state) => state.beginWriting);
   const importDocument = useDocumentStore((state) => state.importDocument);
+  const addPageToBook = useDocumentStore((state) => state.addPageToBook);
   const closeJournal = useJournalStore((state) => state.closeJournal);
+  const openBookId = useJournalStore((state) => state.openBookId);
+  const requestLastSpread = useJournalStore((state) => state.requestLastSpread);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const importTargetRef = useRef<string>("loose");
   const [isCreatingBook, setIsCreatingBook] = useState(false);
   const [bookTitle, setBookTitle] = useState("");
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
@@ -113,18 +117,43 @@ export function DocumentSidebar() {
       return;
     }
 
+    const importTarget = importTargetRef.current;
+
     try {
       const imported = await parseWritingFile(file);
-      await importDocument(imported.title, imported.content);
-      closeJournal();
+
+      if (importTarget === "loose") {
+        await importDocument(imported.title, imported.content);
+        closeJournal();
+      } else {
+        const document = await addPageToBook(importTarget, imported);
+
+        if (document) {
+          if (openBookId !== importTarget) {
+            handleOpenJournal(importTarget);
+          }
+
+          switchDocument(document.id);
+          beginWriting(document.id);
+          requestLastSpread();
+        }
+      }
+
       setSidebarOpen(false);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not import that file.");
     } finally {
+      importTargetRef.current = "loose";
+
       if (importInputRef.current) {
         importInputRef.current.value = "";
       }
     }
+  };
+
+  const startImport = (target: string) => {
+    importTargetRef.current = target;
+    importInputRef.current?.click();
   };
 
   return (
@@ -172,6 +201,9 @@ export function DocumentSidebar() {
                       </button>
                       <button type="button" onClick={() => exportBook(book, documents, "pdf")}>
                         PDF
+                      </button>
+                      <button type="button" onClick={() => startImport(book.id)}>
+                        Import
                       </button>
                       <button type="button" onClick={() => void deleteBook(book.id)}>
                         Delete
@@ -293,7 +325,7 @@ export function DocumentSidebar() {
                 type="file"
                 onChange={(event) => void handleImportFile(event.currentTarget.files?.[0])}
               />
-              <button type="button" className="new-document-button" onClick={() => importInputRef.current?.click()}>
+              <button type="button" className="new-document-button" onClick={() => startImport("loose")}>
                 + Import .txt / .md
               </button>
               <button

@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CoverInlineField } from "@/components/journal/CoverInlineField";
 import { JournalCover } from "@/components/journal/JournalCover";
 import { JournalSpread } from "@/components/journal/JournalSpread";
+import { exportBook } from "@/lib/export";
+import { parseWritingFile } from "@/lib/importFile";
 import {
   buildJournalSheets,
   getCoverPalette,
@@ -42,6 +44,7 @@ export function BookJournal() {
   const addPageToBook = useDocumentStore((state) => state.addPageToBook);
   const renameBook = useDocumentStore((state) => state.renameBook);
   const switchDocument = useDocumentStore((state) => state.switchDocument);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const openBookId = useJournalStore((state) => state.openBookId);
   const isCoverOpen = useJournalStore((state) => state.isCoverOpen);
   const spreadIndex = useJournalStore((state) => state.spreadIndex);
@@ -155,6 +158,32 @@ export function BookJournal() {
     });
   };
 
+  const handleImportLeaf = async (file: File | undefined) => {
+    if (!book || !file) {
+      return;
+    }
+
+    try {
+      const imported = await parseWritingFile(file);
+      const document = await addPageToBook(book.id, imported);
+
+      if (!document) {
+        return;
+      }
+
+      switchDocument(document.id);
+      beginWriting(document.id);
+      requestLastSpread();
+      playPageSound();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not import that file.");
+    } finally {
+      if (importInputRef.current) {
+        importInputRef.current.value = "";
+      }
+    }
+  };
+
   useEffect(() => {
     if (!openBookId) {
       return undefined;
@@ -265,6 +294,27 @@ export function BookJournal() {
           <button type="button" onClick={handleAddPage}>
             New leaf
           </button>
+          <div className="journal-toolbar-files">
+            <button type="button" onClick={() => exportBook(book, documents, "txt")}>
+              TXT
+            </button>
+            <button type="button" onClick={() => exportBook(book, documents, "markdown")}>
+              MD
+            </button>
+            <button type="button" onClick={() => exportBook(book, documents, "pdf")}>
+              PDF
+            </button>
+            <input
+              ref={importInputRef}
+              accept=".txt,.md,.markdown,text/plain,text/markdown"
+              className="import-file-input"
+              type="file"
+              onChange={(event) => void handleImportLeaf(event.currentTarget.files?.[0])}
+            />
+            <button type="button" onClick={() => importInputRef.current?.click()}>
+              Import
+            </button>
+          </div>
         </div>
       )}
 
