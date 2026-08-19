@@ -1,0 +1,10 @@
+{
+  "name": "Type Writer",
+  "short_name": "Type Writer",
+  "description": "A premium mechanical typewriter journal for focused writing.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#171513",
+  "theme_color": "#171513",
+  "icons": []
+}
