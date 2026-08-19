@@ -5,6 +5,7 @@ import {
   syncLibraryWithSupabase,
   upsertCloudBook,
   upsertCloudDocument,
+  upsertCloudProfile,
 } from "@/lib/cloudSync";
 import {
   createBook,
@@ -13,11 +14,13 @@ import {
   deleteDocumentById,
   getAllBooks,
   getAllDocuments,
+  queuePendingDelete,
   saveBook,
   saveDocument,
   type WritingBook,
   type WritingDocument,
 } from "@/lib/indexeddb";
+import { isAppOnline, isNetworkError } from "@/lib/offline";
 import { useAuthStore } from "@/store/authStore";
 
 interface DocumentState {
@@ -52,6 +55,16 @@ const sortBooks = (books: WritingBook[]) => [...books].sort((first, second) => s
 const getCloudUser = () => useAuthStore.getState().user;
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : "Cloud sync failed.");
+
+const shouldIgnoreCloudError = (error: unknown) => !isAppOnline() || isNetworkError(error);
+
+function catchCloud(error: unknown) {
+  if (shouldIgnoreCloudError(error)) {
+    return;
+  }
+
+  useDocumentStore.setState({ cloudSyncError: getErrorMessage(error) });
+}
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: [],
@@ -89,13 +102,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   syncWithCloud: async () => {
     const user = getCloudUser();
 
-    if (!user) {
+    if (!user || !isAppOnline() || get().isCloudSyncing) {
       return;
     }
 
     set({ isCloudSyncing: true, cloudSyncError: null });
 
     try {
+      await upsertCloudProfile(user);
+
       const syncedLibrary = await syncLibraryWithSupabase({
         user,
         documents: get().documents,
@@ -114,16 +129,17 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         lastSavedAt: Date.now(),
       }));
     } catch (error) {
-      set({ isCloudSyncing: false, cloudSyncError: getErrorMessage(error) });
+      set({
+        isCloudSyncing: false,
+        cloudSyncError: shouldIgnoreCloudError(error) ? null : getErrorMessage(error),
+      });
       console.warn("Supabase sync failed", error);
     }
   },
   createDocument: async () => {
     const document = createEmptyDocument("Untitled");
     await saveDocument(document);
-    void upsertCloudDocument(document, getCloudUser()).catch((error) =>
-      set({ cloudSyncError: getErrorMessage(error) }),
-    );
+    void upsertCloudDocument(document, getCloudUser()).catch(catchCloud);
 
     set((state) => ({
       documents: sortDocuments([document, ...state.documents]),
@@ -147,7 +163,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     const book = createBook(title, uniqueDocumentIds);
     await saveBook(book);
-    void upsertCloudBook(book, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+    void upsertCloudBook(book, getCloudUser()).catch(catchCloud);
 
     set((state) => ({
       books: sortBooks([book, ...state.books]),
@@ -163,10 +179,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const book = createBook(title, [document.id]);
     await saveDocument(document);
     await saveBook(book);
-    void upsertCloudDocument(document, getCloudUser()).catch((error) =>
-      set({ cloudSyncError: getErrorMessage(error) }),
-    );
-    void upsertCloudBook(book, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+    void upsertCloudDocument(document, getCloudUser()).catch(catchCloud);
+    void upsertCloudBook(book, getCloudUser()).catch(catchCloud);
 
     set((state) => ({
       documents: sortDocuments([document, ...state.documents]),
@@ -194,10 +208,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     await saveDocument(document);
     await saveBook(updatedBook);
-    void upsertCloudDocument(document, getCloudUser()).catch((error) =>
-      set({ cloudSyncError: getErrorMessage(error) }),
-    );
-    void upsertCloudBook(updatedBook, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+    void upsertCloudDocument(document, getCloudUser()).catch(catchCloud);
+    void upsertCloudBook(updatedBook, getCloudUser()).catch(catchCloud);
 
     set((state) => ({
       documents: sortDocuments([document, ...state.documents]),
@@ -210,7 +222,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
   deleteBook: async (bookId) => {
     await deleteBookById(bookId);
-    void deleteCloudBook(bookId, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+    await queuePendingDelete("book", bookId);
+    void deleteCloudBook(bookId, getCloudUser()).catch(catchCloud);
     set((state) => ({
       books: state.books.filter((book) => book.id !== bookId),
       lastSavedAt: Date.now(),
@@ -237,9 +250,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }));
 
     await saveDocument(updatedDocument);
-    void upsertCloudDocument(updatedDocument, getCloudUser()).catch((error) =>
-      set({ cloudSyncError: getErrorMessage(error) }),
-    );
+    void upsertCloudDocument(updatedDocument, getCloudUser()).catch(catchCloud);
     set({ lastSavedAt: Date.now() });
   },
   deleteDocument: async (documentId) => {
@@ -249,16 +260,18 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const replacementDocument = createEmptyDocument("Untitled");
       await saveDocument(replacementDocument);
       await deleteDocumentById(documentId);
-      await Promise.all(get().books.map((book) => deleteBookById(book.id)));
-      void deleteCloudDocument(documentId, getCloudUser()).catch((error) =>
-        set({ cloudSyncError: getErrorMessage(error) }),
+      await queuePendingDelete("document", documentId);
+      await Promise.all(
+        get().books.map(async (book) => {
+          await deleteBookById(book.id);
+          await queuePendingDelete("book", book.id);
+        }),
       );
+      void deleteCloudDocument(documentId, getCloudUser()).catch(catchCloud);
       get().books.forEach((book) => {
-        void deleteCloudBook(book.id, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+        void deleteCloudBook(book.id, getCloudUser()).catch(catchCloud);
       });
-      void upsertCloudDocument(replacementDocument, getCloudUser()).catch((error) =>
-        set({ cloudSyncError: getErrorMessage(error) }),
-      );
+      void upsertCloudDocument(replacementDocument, getCloudUser()).catch(catchCloud);
 
       set({
         documents: [replacementDocument],
@@ -278,18 +291,20 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const removedBooks = get().books.filter((book) => !updatedBooks.some((updatedBook) => updatedBook.id === book.id));
 
     await deleteDocumentById(documentId);
+    await queuePendingDelete("document", documentId);
     await Promise.all([
       ...updatedBooks.map((book) => saveBook(book)),
-      ...removedBooks.map((book) => deleteBookById(book.id)),
+      ...removedBooks.map(async (book) => {
+        await deleteBookById(book.id);
+        await queuePendingDelete("book", book.id);
+      }),
     ]);
-    void deleteCloudDocument(documentId, getCloudUser()).catch((error) =>
-      set({ cloudSyncError: getErrorMessage(error) }),
-    );
+    void deleteCloudDocument(documentId, getCloudUser()).catch(catchCloud);
     updatedBooks.forEach((book) => {
-      void upsertCloudBook(book, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+      void upsertCloudBook(book, getCloudUser()).catch(catchCloud);
     });
     removedBooks.forEach((book) => {
-      void deleteCloudBook(book.id, getCloudUser()).catch((error) => set({ cloudSyncError: getErrorMessage(error) }));
+      void deleteCloudBook(book.id, getCloudUser()).catch(catchCloud);
     });
 
     set({
@@ -327,9 +342,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
 
     await saveDocument(currentDocument);
-    void upsertCloudDocument(currentDocument, getCloudUser()).catch((error) =>
-      set({ cloudSyncError: getErrorMessage(error) }),
-    );
+    void upsertCloudDocument(currentDocument, getCloudUser()).catch(catchCloud);
     set({ lastSavedAt: Date.now() });
   },
   setSidebarOpen: (isSidebarOpen) => set({ isSidebarOpen }),

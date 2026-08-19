@@ -18,11 +18,10 @@ export function Typewriter() {
   const currentDocumentId = useDocumentStore((state) => state.currentDocumentId);
   const focusMode = useSettingsStore((state) => state.focusMode);
   const user = useAuthStore((state) => state.user);
-  const isAuthLoaded = useAuthStore((state) => state.isLoaded);
   const [isCoverOpen, setIsCoverOpen] = useState(deskOpenedThisSession);
   const [isOpening, setIsOpening] = useState(false);
   const currentDocument = documents.find((document) => document.id === currentDocumentId);
-  const coverName = isAuthLoaded ? getWriterCoverName(user) : "Hey Stranger";
+  const coverName = getWriterCoverName(user);
 
   const handleOpen = () => {
     deskOpenedThisSession = true;

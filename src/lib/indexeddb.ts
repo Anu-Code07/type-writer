@@ -25,6 +25,12 @@ export interface TypewriterSettings {
   focusMode: boolean;
 }
 
+export interface PendingDelete {
+  id: string;
+  kind: "document" | "book";
+  deletedAt: number;
+}
+
 interface TypewriterDatabase extends DBSchema {
   documents: {
     key: string;
@@ -40,10 +46,14 @@ interface TypewriterDatabase extends DBSchema {
     key: string;
     value: TypewriterSettings;
   };
+  pendingDeletes: {
+    key: string;
+    value: PendingDelete;
+  };
 }
 
 const DATABASE_NAME = "premium-typewriter";
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 const SETTINGS_KEY = "settings";
 
 const getDatabase = () =>
@@ -61,6 +71,10 @@ const getDatabase = () =>
 
       if (!database.objectStoreNames.contains("preferences")) {
         database.createObjectStore("preferences");
+      }
+
+      if (!database.objectStoreNames.contains("pendingDeletes")) {
+        database.createObjectStore("pendingDeletes", { keyPath: "id" });
       }
     },
   });
@@ -147,4 +161,23 @@ export const loadSettings = async () => {
 export const saveSettings = async (settings: TypewriterSettings) => {
   const database = await getDatabase();
   await database.put("preferences", settings, SETTINGS_KEY);
+};
+
+export const queuePendingDelete = async (kind: PendingDelete["kind"], id: string) => {
+  const database = await getDatabase();
+  await database.put("pendingDeletes", {
+    id,
+    kind,
+    deletedAt: Date.now(),
+  });
+};
+
+export const getPendingDeletes = async () => {
+  const database = await getDatabase();
+  return database.getAll("pendingDeletes");
+};
+
+export const clearPendingDelete = async (id: string) => {
+  const database = await getDatabase();
+  await database.delete("pendingDeletes", id);
 };

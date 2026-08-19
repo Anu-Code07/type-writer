@@ -9,6 +9,7 @@ import { OptionsPanel } from "@/components/settings/OptionsPanel";
 import { Typewriter } from "@/components/typewriter/Typewriter";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useKeyboard } from "@/hooks/useKeyboard";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import { useAuthStore } from "@/store/authStore";
 import { useDocumentStore } from "@/store/documentStore";
@@ -21,6 +22,7 @@ export function AppShell() {
   const user = useAuthStore((state) => state.user);
   const openBookId = useJournalStore((state) => state.openBookId);
   const writingDocumentId = useJournalStore((state) => state.writingDocumentId);
+  const isOnline = useOnlineStatus();
 
   useTypewriter();
   useKeyboard();
@@ -35,17 +37,19 @@ export function AppShell() {
       {openBookId ? null : <Typewriter />}
       <AnimatePresence>{openBookId ? <BookJournal key={openBookId} /> : null}</AnimatePresence>
       <div className="status-indicator" aria-live="polite">
-        {isCloudSyncing
-          ? "Syncing Supabase"
-          : cloudSyncError
-            ? "Saved local · Cloud needs setup"
-            : writingDocumentId
-              ? "Ink on the page"
-              : lastSavedAt && user
-                ? "Saved local + Supabase"
-                : lastSavedAt
-                  ? "Saved locally"
-                  : "Local journal ready"}
+        {!isOnline
+          ? "Offline · Saved on this device"
+          : isCloudSyncing
+            ? "Syncing to cloud"
+            : cloudSyncError
+              ? "Saved locally · Sync retry pending"
+              : writingDocumentId
+                ? "Ink on the page"
+                : lastSavedAt && user
+                  ? "Saved local + cloud"
+                  : lastSavedAt
+                    ? "Saved locally"
+                    : "Local journal ready"}
       </div>
     </div>
   );

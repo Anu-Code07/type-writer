@@ -1,7 +1,16 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { upsertCloudProfile } from "@/lib/cloudSync";
+import {
+  clearCachedWriterProfile,
+  isAppOnline,
+  readCachedWriterProfile,
+  readLocalMode,
+  writeCachedWriterProfile,
+  writeLocalMode,
+} from "@/lib/offline";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { getDisplayNameFromUser } from "@/lib/writerName";
 
 interface AuthState {
   session: Session | null;
@@ -25,6 +34,61 @@ let hasAuthListener = false;
 const getFriendlyAuthError = (message: string) =>
   message.replace("Invalid login credentials", "That email or password does not look right.");
 
+const cacheWriterFromUser = (user: User | null | undefined) => {
+  if (!user) {
+    return;
+  }
+
+  writeCachedWriterProfile({
+    id: user.id,
+    displayName: getDisplayNameFromUser(user),
+    email: user.email,
+  });
+  writeLocalMode(false);
+};
+
+const shouldOpenAuthPanel = (session: Session | null) => {
+  if (session || !isAppOnline() || readLocalMode() || readCachedWriterProfile()) {
+    return false;
+  }
+
+  return true;
+};
+
+const rememberProfile = (user: User | null | undefined) => {
+  cacheWriterFromUser(user);
+
+  if (user) {
+    void upsertCloudProfile(user).catch((profileError) => {
+      console.warn("Could not save profile", profileError);
+    });
+  }
+};
+
+const getSessionSafely = async () => {
+  if (!supabase) {
+    return { session: null as Session | null, errorMessage: null as string | null };
+  }
+
+  const timeoutMs = isAppOnline() ? 8000 : 1200;
+
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error("timeout")), timeoutMs);
+      }),
+    ]);
+
+    return {
+      session: result.data.session,
+      errorMessage: result.error?.message ? getFriendlyAuthError(result.error.message) : null,
+    };
+  } catch {
+    return { session: null as Session | null, errorMessage: null as string | null };
+  }
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   user: null,
@@ -35,45 +99,68 @@ export const useAuthStore = create<AuthState>((set) => ({
   hasSkippedAuth: false,
   initializeAuth: async () => {
     if (!isSupabaseConfigured || !supabase) {
-      set({ isLoaded: true, isAuthPanelOpen: false });
+      set({ isLoaded: true, isAuthPanelOpen: false, hasSkippedAuth: readLocalMode() });
       return;
     }
 
-    const { data, error } = await supabase.auth.getSession();
+    if (!isAppOnline()) {
+      void supabase.auth.stopAutoRefresh();
+    }
+
+    const { session, errorMessage } = await getSessionSafely();
+
+    if (session?.user) {
+      rememberProfile(session.user);
+    }
 
     set({
-      session: data.session,
-      user: data.session?.user ?? null,
+      session,
+      user: session?.user ?? null,
       isLoaded: true,
-      isAuthPanelOpen: !data.session,
-      authError: error?.message ? getFriendlyAuthError(error.message) : null,
+      isAuthPanelOpen: shouldOpenAuthPanel(session),
+      hasSkippedAuth: !session && readLocalMode(),
+      authError: isAppOnline() ? errorMessage : null,
     });
 
     if (!hasAuthListener) {
       hasAuthListener = true;
-      supabase.auth.onAuthStateChange((_event, nextSession) => {
+      supabase.auth.onAuthStateChange((event, nextSession) => {
+        if (event === "SIGNED_OUT" && !isAppOnline()) {
+          return;
+        }
+
+        if (nextSession?.user) {
+          rememberProfile(nextSession.user);
+        }
+
+        if (event === "SIGNED_OUT") {
+          clearCachedWriterProfile();
+        }
+
         set({
           session: nextSession,
           user: nextSession?.user ?? null,
-          isAuthPanelOpen: nextSession ? false : true,
+          isAuthPanelOpen: shouldOpenAuthPanel(nextSession),
           authMessage: null,
           authError: null,
-          hasSkippedAuth: false,
+          hasSkippedAuth: !nextSession && readLocalMode(),
         });
-
-        if (nextSession?.user) {
-          void upsertCloudProfile(nextSession.user).catch((profileError) => {
-            console.warn("Could not save profile", profileError);
-          });
-        }
       });
     }
   },
   setAuthPanelOpen: (isAuthPanelOpen) => set({ isAuthPanelOpen, authError: null, authMessage: null }),
-  continueLocally: () => set({ hasSkippedAuth: true, isAuthPanelOpen: false, authError: null }),
+  continueLocally: () => {
+    writeLocalMode(true);
+    set({ hasSkippedAuth: true, isAuthPanelOpen: false, authError: null });
+  },
   signInWithPassword: async (email, password) => {
     if (!supabase) {
       set({ authError: "Supabase is not configured yet." });
+      return;
+    }
+
+    if (!isAppOnline()) {
+      set({ authError: "You're offline. Writing still saves on this device." });
       return;
     }
 
@@ -84,9 +171,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       return;
     }
 
-    void upsertCloudProfile(data.user).catch((profileError) => {
-      console.warn("Could not save profile", profileError);
-    });
+    rememberProfile(data.user);
 
     set({
       session: data.session,
@@ -99,6 +184,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   signUpWithPassword: async (displayName, email, password) => {
     if (!supabase) {
       set({ authError: "Supabase is not configured yet." });
+      return;
+    }
+
+    if (!isAppOnline()) {
+      set({ authError: "You're offline. Writing still saves on this device." });
       return;
     }
 
@@ -118,9 +208,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       return;
     }
 
-    void upsertCloudProfile(data.user).catch((profileError) => {
-      console.warn("Could not save profile", profileError);
-    });
+    rememberProfile(data.user);
 
     set({
       session: data.session,
@@ -135,6 +223,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   sendMagicLink: async (email) => {
     if (!supabase) {
       set({ authError: "Supabase is not configured yet." });
+      return;
+    }
+
+    if (!isAppOnline()) {
+      set({ authError: "You're offline. Writing still saves on this device." });
       return;
     }
 
@@ -154,10 +247,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   signOut: async () => {
     if (!supabase) {
+      clearCachedWriterProfile();
+      set({ session: null, user: null, isAuthPanelOpen: isAppOnline(), hasSkippedAuth: readLocalMode() });
       return;
     }
 
-    await supabase.auth.signOut();
-    set({ session: null, user: null, isAuthPanelOpen: true, hasSkippedAuth: false });
+    if (isAppOnline()) {
+      await supabase.auth.signOut();
+    }
+
+    clearCachedWriterProfile();
+    set({ session: null, user: null, isAuthPanelOpen: isAppOnline(), hasSkippedAuth: false });
   },
 }));

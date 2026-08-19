@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { readCachedWriterProfile } from "@/lib/offline";
 import { useAuthStore } from "@/store/authStore";
 import { useDocumentStore } from "@/store/documentStore";
 import { useJournalStore } from "@/store/journalStore";
@@ -23,6 +24,7 @@ export function Header() {
   const currentDocument = documents.find((document) => document.id === currentDocumentId);
   const currentBook = books.find((book) => book.id === openBookId);
   const headerTitle = currentBook?.title || currentDocument?.title || "Untitled";
+  const hasAccount = Boolean(user || readCachedWriterProfile());
 
   if (focusMode) {
     return null;
@@ -56,7 +58,7 @@ export function Header() {
             Desk
           </button>
         ) : null}
-        {user ? (
+        {hasAccount ? (
           <button type="button" className="typewriter-login-button" onClick={() => void signOut()}>
             Logout
           </button>

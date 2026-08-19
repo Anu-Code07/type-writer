@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
 
@@ -21,6 +22,7 @@ export function AuthPanel() {
   const sendMagicLink = useAuthStore((state) => state.sendMagicLink);
   const authMessage = useAuthStore((state) => state.authMessage);
   const authError = useAuthStore((state) => state.authError);
+  const isOnline = useOnlineStatus();
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -59,8 +61,14 @@ export function AuthPanel() {
             <h1>Open your writing desk.</h1>
             <p>
               Sign in with email and password, create a quiet writing account, or send yourself a magic
-              link. Your writing still saves locally on this device.
+              link. Your writing always saves on this device, and syncs to the cloud when you are online.
             </p>
+
+            {!isOnline ? (
+              <div className="auth-notice">
+                You are offline. Keep writing locally — it will sync when you are back online.
+              </div>
+            ) : null}
 
             {!isSupabaseConfigured ? (
               <div className="auth-notice">
@@ -127,7 +135,7 @@ export function AuthPanel() {
               {authError ? <div className="auth-error">{authError}</div> : null}
               {authMessage ? <div className="auth-message">{authMessage}</div> : null}
 
-              <button type="submit" className="auth-primary" disabled={!isSupabaseConfigured || isSubmitting}>
+              <button type="submit" className="auth-primary" disabled={!isSupabaseConfigured || isSubmitting || !isOnline}>
                 {isSubmitting
                   ? "Working..."
                   : mode === "signin"
