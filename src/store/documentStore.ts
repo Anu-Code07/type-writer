@@ -35,6 +35,7 @@ interface DocumentState {
   loadDocuments: () => Promise<void>;
   syncWithCloud: () => Promise<void>;
   createDocument: () => Promise<WritingDocument>;
+  importDocument: (title: string, content: string) => Promise<WritingDocument>;
   createBookFromDocuments: (title: string, documentIds: string[]) => Promise<WritingBook | null>;
   createJournal: (title?: string) => Promise<WritingBook>;
   addPageToBook: (bookId: string) => Promise<WritingDocument | null>;
@@ -139,6 +140,24 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
   createDocument: async () => {
     const document = createEmptyDocument("Untitled");
+    await saveDocument(document);
+    void upsertCloudDocument(document, getCloudUser()).catch(catchCloud);
+
+    set((state) => ({
+      documents: sortDocuments([document, ...state.documents]),
+      currentDocumentId: document.id,
+      isSidebarOpen: false,
+      lastSavedAt: Date.now(),
+    }));
+
+    return document;
+  },
+  importDocument: async (title, content) => {
+    const document = {
+      ...createEmptyDocument(title.trim() || "Imported"),
+      content,
+    };
+
     await saveDocument(document);
     void upsertCloudDocument(document, getCloudUser()).catch(catchCloud);
 

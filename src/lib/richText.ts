@@ -94,6 +94,77 @@ export const htmlToMarkdown = (content: string) => {
     .trim();
 };
 
+const inlineMarkdown = (value: string) =>
+  escapeHtml(value)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/__(.+?)__/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/_(.+?)_/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2">$1</a>');
+
+export const markdownToHtml = (markdown: string) => {
+  const normalized = markdown.replace(/\r\n/g, "\n").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (isRichHtml(normalized)) {
+    return sanitizeHtml(normalized);
+  }
+
+  const blocks = normalized.split(/\n{2,}/);
+
+  const html = blocks
+    .map((block) => {
+      const lines = block.split("\n");
+      const firstLine = lines[0] ?? "";
+
+      if (/^###\s+/.test(firstLine)) {
+        return `<h3>${inlineMarkdown(firstLine.replace(/^###\s+/, ""))}</h3>`;
+      }
+
+      if (/^##\s+/.test(firstLine)) {
+        return `<h2>${inlineMarkdown(firstLine.replace(/^##\s+/, ""))}</h2>`;
+      }
+
+      if (/^#\s+/.test(firstLine)) {
+        return `<h1>${inlineMarkdown(firstLine.replace(/^#\s+/, ""))}</h1>`;
+      }
+
+      if (/^>\s?/.test(firstLine)) {
+        return `<blockquote>${inlineMarkdown(lines.map((line) => line.replace(/^>\s?/, "")).join("\n"))}</blockquote>`;
+      }
+
+      if (/^\s*[-*]\s+/.test(firstLine)) {
+        const items = lines
+          .filter((line) => /^\s*[-*]\s+/.test(line))
+          .map((line) => `<li>${inlineMarkdown(line.replace(/^\s*[-*]\s+/, ""))}</li>`)
+          .join("");
+
+        return `<ul>${items}</ul>`;
+      }
+
+      if (/^\s*\d+\.\s+/.test(firstLine)) {
+        const items = lines
+          .filter((line) => /^\s*\d+\.\s+/.test(line))
+          .map((line) => `<li>${inlineMarkdown(line.replace(/^\s*\d+\.\s+/, ""))}</li>`)
+          .join("");
+
+        return `<ol>${items}</ol>`;
+      }
+
+      if (/^---+$/.test(firstLine)) {
+        return "<hr>";
+      }
+
+      return `<p>${inlineMarkdown(block).replaceAll("\n", "<br>")}</p>`;
+    })
+    .join("");
+
+  return sanitizeHtml(html);
+};
+
 export const isEmptyHtml = (content: string) => htmlToPlainText(content).length === 0;
 
 const unwrapDisallowed = (element: Element) => {
