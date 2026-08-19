@@ -284,14 +284,15 @@
   z-index: 2;
 }
 
-.typewriter-editor-shell::before {
+.typewriter-manuscript-label {
   color: rgba(83, 59, 42, 0.23);
-  content: "MANUSCRIPT";
   font-family: "Courier New", Courier, monospace;
   font-size: 0.68rem;
   left: 0;
   letter-spacing: 0.22em;
+  pointer-events: none;
   position: absolute;
+  text-transform: uppercase;
   top: -38px;
 }
 
@@ -368,7 +369,7 @@
   color: rgba(238, 224, 201, 0.28);
 }
 
-.paper-dark .typewriter-editor-shell::before {
+.paper-dark .typewriter-manuscript-label {
   color: rgba(238, 224, 201, 0.18);
 }
 

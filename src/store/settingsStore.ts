@@ -18,6 +18,7 @@ export const defaultSettings: TypewriterSettings = {
   soundEnabled: true,
   mechanicalEffects: true,
   focusMode: false,
+  manuscriptLabel: "Manuscript",
 };
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -42,6 +43,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       soundEnabled: settings.soundEnabled ?? get().soundEnabled,
       mechanicalEffects: settings.mechanicalEffects ?? get().mechanicalEffects,
       focusMode: settings.focusMode ?? get().focusMode,
+      manuscriptLabel: (settings.manuscriptLabel ?? get().manuscriptLabel).trim() || "Manuscript",
     };
 
     set(nextSettings);

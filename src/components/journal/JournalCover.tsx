@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { CSSProperties } from "react";
+import { CoverInlineField } from "@/components/journal/CoverInlineField";
 import type { CoverPalette } from "@/lib/journal";
 import { formatJournalDate } from "@/lib/journal";
 import { typewriterSounds } from "@/lib/sounds";
@@ -18,6 +19,8 @@ interface JournalCoverProps {
   palette: CoverPalette;
   onBeginOpen?: () => void;
   onOpen: () => void;
+  onRenameKicker?: (kicker: string) => void;
+  onRenameTitle?: (title: string) => void;
 }
 
 export function JournalCover({
@@ -30,15 +33,28 @@ export function JournalCover({
   palette,
   onBeginOpen,
   onOpen,
+  onRenameKicker,
+  onRenameTitle,
 }: JournalCoverProps) {
   const [isOpening, setIsOpening] = useState(false);
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
 
+  const openCover = () => {
+    if (isOpening) {
+      return;
+    }
+
+    void typewriterSounds.unlock();
+    typewriterSounds.play("page", soundEnabled);
+    onBeginOpen?.();
+    setIsOpening(true);
+  };
+
   return (
-    <motion.button
-      type="button"
+    <motion.div
       className={`journal-cover ${isOpening ? "is-opening" : ""}`}
-      aria-label={`Open journal for ${authorName}`}
+      role="group"
+      aria-label={`Closed journal for ${authorName}`}
       style={
         {
           "--leather": palette.leather,
@@ -55,15 +71,14 @@ export function JournalCover({
       }
       exit={{ opacity: 0, transition: { duration: 0 } }}
       transition={{ duration: isOpening ? 1.05 : 0.7, ease: [0.22, 1, 0.36, 1] }}
-      onClick={() => {
-        if (isOpening) {
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+
+        if (target.closest("input, textarea")) {
           return;
         }
 
-        void typewriterSounds.unlock();
-        typewriterSounds.play("page", soundEnabled);
-        onBeginOpen?.();
-        setIsOpening(true);
+        openCover();
       }}
       onAnimationComplete={() => {
         if (isOpening) {
@@ -74,10 +89,30 @@ export function JournalCover({
       <span className="journal-cover-grain" />
       <span className="journal-cover-frame" />
       <span className="journal-cover-corners" />
-      <span className="journal-cover-kicker">{kicker}</span>
+      {onRenameKicker ? (
+        <CoverInlineField
+          className="journal-cover-kicker"
+          value={kicker}
+          ariaLabel="Manuscript name"
+          fallback="Manuscript"
+          onSave={onRenameKicker}
+        />
+      ) : (
+        <span className="journal-cover-kicker">{kicker}</span>
+      )}
       <strong className="journal-cover-greeting">{authorName}</strong>
       <span className="journal-cover-rule" />
-      <strong className="journal-cover-title">{title}</strong>
+      {onRenameTitle ? (
+        <CoverInlineField
+          className="journal-cover-title"
+          value={title}
+          ariaLabel="Book name"
+          fallback="Untitled"
+          onSave={onRenameTitle}
+        />
+      ) : (
+        <strong className="journal-cover-title">{title}</strong>
+      )}
       {typeof createdAt === "number" &&
       typeof chapterCount === "number" &&
       typeof wordCount === "number" ? (
@@ -88,7 +123,18 @@ export function JournalCover({
           </em>
         </span>
       ) : null}
-      {isOpening ? null : <span className="journal-cover-open">Open</span>}
-    </motion.button>
+      {isOpening ? null : (
+        <button
+          type="button"
+          className="journal-cover-open"
+          onClick={(event) => {
+            event.stopPropagation();
+            openCover();
+          }}
+        >
+          Open
+        </button>
+      )}
+    </motion.div>
   );
 }

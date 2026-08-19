@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CoverInlineField } from "@/components/journal/CoverInlineField";
 import { JournalCover } from "@/components/journal/JournalCover";
 import { JournalSpread } from "@/components/journal/JournalSpread";
 import {
@@ -39,6 +40,7 @@ export function BookJournal() {
   const books = useDocumentStore((state) => state.books);
   const documents = useDocumentStore((state) => state.documents);
   const addPageToBook = useDocumentStore((state) => state.addPageToBook);
+  const renameBook = useDocumentStore((state) => state.renameBook);
   const switchDocument = useDocumentStore((state) => state.switchDocument);
   const openBookId = useJournalStore((state) => state.openBookId);
   const isCoverOpen = useJournalStore((state) => state.isCoverOpen);
@@ -57,6 +59,8 @@ export function BookJournal() {
   const user = useAuthStore((state) => state.user);
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const focusMode = useSettingsStore((state) => state.focusMode);
+  const manuscriptLabel = useSettingsStore((state) => state.manuscriptLabel);
+  const updateSettings = useSettingsStore((state) => state.update);
   const book = books.find((item) => item.id === openBookId);
 
   const sheets = useMemo(() => (book ? buildJournalSheets(book, documents) : []), [book, documents]);
@@ -245,7 +249,13 @@ export function BookJournal() {
             Back to desk
           </button>
           <p>
-            <strong>{book.title}</strong>
+            <CoverInlineField
+              className="journal-toolbar-title"
+              value={book.title}
+              ariaLabel="Book name"
+              fallback="Untitled"
+              onSave={(nextTitle) => void renameBook(book.id, nextTitle)}
+            />
             <span>
               {isCoverOpen
                 ? `Pages ${compact ? spreadIndex + 1 : spreadIndex * 2 + 1}–${compact ? spreadIndex + 1 : spreadIndex * 2 + 2}`
@@ -291,8 +301,11 @@ export function BookJournal() {
               createdAt={coverSheet.createdAt}
               chapterCount={coverSheet.chapterCount}
               wordCount={coverSheet.wordCount}
+              kicker={manuscriptLabel}
               palette={palette}
               onOpen={openCover}
+              onRenameKicker={(nextKicker) => updateSettings({ manuscriptLabel: nextKicker })}
+              onRenameTitle={(nextTitle) => void renameBook(book.id, nextTitle)}
             />
           )}
         </AnimatePresence>
